@@ -1,6 +1,10 @@
 // Data access and the manager's card. Reads DATA (flat columns from data.json); still no DOM.
 const KIND_ORDER = ['tambah', 'libur', 'tahan', 'kurangi', 'lepas'];
-const KIND_LABEL = { lepas: 'Lepas teater', tambah: 'Tambah jadwal', libur: 'Jadwal ekstra', tahan: 'Pertahankan', kurangi: 'Kurangi' };
+const KIND_LABEL = { lepas: 'Lepas teater', tambah: 'Tambah jadwal', libur: 'Tambah jadwal', tahan: 'Pertahankan', kurangi: 'Kurangi' };
+// The page shows four saran: the weekend rule (tambah) and the holiday rule (libur) both mean "add shows",
+// so they share one name, colour and filter. The rules and their reliability stay separate underneath.
+const SARAN_ORDER = ['tambah', 'tahan', 'kurangi', 'lepas'];
+const saranOf = (kind) => (kind === 'libur' ? 'tambah' : kind);
 const ALL_MORNINGS = 'semua';
 
 const clusterName = (cl) => {

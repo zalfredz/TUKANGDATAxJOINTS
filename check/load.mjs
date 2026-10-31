@@ -8,7 +8,7 @@ const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
 
 const EXPORTS = `decide, ruleTrace, claimHeld, schedule, scheduleAdvice, revenueOf, priceOf, quickEstimate, quickLibrary, quickFamilyOf,
   addDays, windowDates, averageD13, holidayShort, isWeekend, fmtInt, fmtDec, fmtPct, fmtRp, tgl, hariTgl,
-  SETS, pairOf, cardFor, ALL_MORNINGS, morningsOf, kindCounts, clusterName, heldRateOf, pairMase, slice, KIND_ORDER, KIND_LABEL, DATA`;
+  SETS, pairOf, cardFor, ALL_MORNINGS, morningsOf, kindCounts, clusterName, heldRateOf, pairMase, slice, KIND_ORDER, KIND_LABEL, SARAN_ORDER, saranOf, DATA`;
 
 export function loadEngine() {
   const DATA = JSON.parse(read('data/data.json'));

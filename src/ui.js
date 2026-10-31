@@ -19,7 +19,7 @@ const SPARK_HEIGHT = 26;
 const INPUT_DELAY_MS = 250;
 const SET_NAME = { test: 'Data uji', val: 'Data validasi' };
 const WEEK_GROUPS = ['Hari biasa', 'Libur nasional', 'Libur sekolah'];
-const KIND_COLOR = { tambah: 'var(--tambah)', libur: 'var(--goldl)', tahan: 'var(--pertahankan)', kurangi: 'var(--kurangi)', lepas: 'var(--turunkan)' };
+const KIND_COLOR = { tambah: 'var(--tambah)', libur: 'var(--tambah)', tahan: 'var(--pertahankan)', kurangi: 'var(--kurangi)', lepas: 'var(--turunkan)' };
 const START_CASE = 'janur';
 const MANAGER_START = Object.freeze({ city: 'Yogyakarta', letter: 'A', t: '2025-12-27' });
 
@@ -149,7 +149,7 @@ function stepText(view) {
     return `Naikkan dari ${shows(a.from)} jadi ${shows(a.to)} per hari pada Sab–Min (${a.note}).`;
   }
   if (d.kind === 'libur') {
-    if (a.to <= a.from) return `Siapkan jadwal ekstra ${at(d.i)}: permintaan naik, ${shows(a.from)} masih cukup. Tambah bila penjualan H-1 kuat.`;
+    if (a.to <= a.from) return `Siapkan tambahan jadwal ${at(d.i)}: permintaan naik, ${shows(a.from)} masih cukup. Tambah bila penjualan H-1 kuat.`;
     return `Pada ${at(d.i)}, naikkan dari ${shows(a.from)} jadi ${shows(a.to)}.`;
   }
   if (d.kind === 'tahan') return `Jadwal tetap sampai D10. Pekan kedua cukup sekitar ${shows(a.to)} per hari.`;
@@ -167,8 +167,8 @@ function reliabilityNote(kind) {
 }
 const RULE_TEXT = {
   lepas: ['Lepas teater', '0 tiket sampai D10'],
-  tambah: ['Tambah jadwal', 'Sab/Min ≥ 1× rata-rata D1–D3'],
-  libur: ['Jadwal ekstra', 'hari libur ≥ +20% vs hari sebelumnya'],
+  tambah: ['Tambah jadwal · akhir pekan', 'Sab/Min ≥ 1× rata-rata D1–D3'],
+  libur: ['Tambah jadwal · hari libur', 'hari libur ≥ +20% vs hari sebelumnya'],
   tahan: ['Pertahankan', 'rata-rata D8–D10 ≥ 0,5×'],
   kurangi: ['Kurangi', 'selain itu, saat turun < 0,5×'],
 };
@@ -450,11 +450,11 @@ function managerCaptionText(card, cl, t) {
 }
 /** Films biggest first (the order of cardFor, as on the deck card); the count buttons filter one saran. */
 function managerBodyHtml(card, only) {
-  const rows = card.rows.filter((r) => !only || r.pair.decision.kind === only);
+  const rows = card.rows.filter((r) => !only || saranOf(r.pair.decision.kind) === only);
   if (!rows.length) return `<tr class="none"><td colspan="${MANAGER_COLUMNS}">Tidak ada film</td></tr>`;
   return rows.map(managerRowHtml).join('');
 }
-const URGENCY = ['lepas', 'kurangi', 'libur', 'tambah', 'tahan'];
+const URGENCY = ['lepas', 'kurangi', 'tambah', 'tahan']; // saran, not rules: holiday films sit in the Tambah line
 const SUMMARY_NAMES = 3;
 function whenText(d, dates) {
   if (d.kind === 'tambah') return 'Sab–Min';
@@ -463,19 +463,27 @@ function whenText(d, dates) {
 }
 /** "What to do this morning": one line per saran, most urgent first, with the films and their day. */
 function managerSummaryHtml(card) {
-  const lines = URGENCY.map((kind) => {
-    const rows = card.rows.filter((r) => r.pair.decision.kind === kind);
+  const lines = URGENCY.map((saran) => {
+    // holiday films first within Tambah: they are tied to one date
+    const rows = card.rows.filter((r) => saranOf(r.pair.decision.kind) === saran)
+      .sort((a, b) => (b.pair.decision.kind === 'libur') - (a.pair.decision.kind === 'libur'));
     if (!rows.length) return '';
     const names = rows.slice(0, SUMMARY_NAMES).map((r) => `${esc(r.pair.title)} <small>(${esc(whenText(r.pair.decision, r.pair.dates))})</small>`).join(', ');
     const more = rows.length > SUMMARY_NAMES ? ` dan ${fmtInt(rows.length - SUMMARY_NAMES)} film lain` : '';
-    const held = `<small class="rel">terbukti ${fmtPct(heldRateOf(kind))} di validasi</small>`;
-    return `<li><b style="color:${KIND_COLOR[kind]}">${KIND_LABEL[kind]}</b> · ${names}${more} ${held}</li>`;
+    // reliability stays per rule: a holiday Tambah held far less often than a weekend one
+    const kinds = [...new Set(rows.map((r) => r.pair.decision.kind))].sort((a, b) => KIND_ORDER.indexOf(a) - KIND_ORDER.indexOf(b));
+    const rate = kinds.length > 1
+      ? kinds.map((k) => `${fmtPct(heldRateOf(k))} ${k === 'libur' ? 'hari libur' : 'akhir pekan'}`).join(', ')
+      : fmtPct(heldRateOf(kinds[0]));
+    const held = `<small class="rel">terbukti ${rate} di validasi</small>`;
+    return `<li><b style="color:${KIND_COLOR[saran]}">${KIND_LABEL[saran]}</b> · ${names}${more} ${held}</li>`;
   }).join('');
   return `<p class="eyebrow">Yang perlu dilakukan</p><ul>${lines}</ul>`;
 }
 function managerCountsHtml(card, only) {
   const counts = kindCounts(card.rows.map((r) => r.pair));
-  return KIND_ORDER.map((k) => `<button type="button" data-kind="${k}" aria-pressed="${!only || only === k}" style="${pillStyle(KIND_COLOR[k])}">${counts[k]} ${KIND_LABEL[k]}</button>`).join('');
+  counts.tambah += counts.libur; // one button for both "add shows" rules
+  return SARAN_ORDER.map((k) => `<button type="button" data-kind="${k}" aria-pressed="${!only || only === k}" style="${pillStyle(KIND_COLOR[k])}">${counts[k]} ${KIND_LABEL[k]}</button>`).join('');
 }
 function renderManager() {
   normalizeManager();
