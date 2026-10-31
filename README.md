@@ -12,13 +12,29 @@ Buka `index.html` di browser. Satu file, data dan font sudah tertanam, jadi bisa
 
 ## Aturan saran
 
-Sama dengan kartu di presentasi, diperiksa berurutan. Rasio = prakiraan ÷ rata-rata D1–D3.
+Sama dengan kartu di presentasi. Lima aturan diperiksa **berurutan**, dan aturan pertama yang terpenuhi menjadi saran. Jadi satu film selalu mendapat tepat satu saran.
 
-1. 0 tiket sampai D10 → **Lepas layar**
-2. Sabtu atau Minggu ≥ 1× → **Tambah jadwal**
-3. Hari libur ≥ +20% dibanding hari sebelumnya → **Jadwal ekstra**
-4. Rata-rata D8–D10 ≥ 0,5× → **Pertahankan**
-5. Selain itu → **Kurangi** mulai rasio pertama kali < 0,5×
+Istilah yang dipakai:
+
+- **D1–D3** = tiga hari pertama yang sudah terjual. **D4–D10** = tujuh hari yang diprakirakan.
+- **Rasio** = prakiraan tiket hari itu ÷ rata-rata tiket D1–D3 (minimal 1). Contoh: rasio 1,2× berarti 20% di atas rata-rata tiga hari pertama.
+- **Pertunjukan dibutuhkan** per hari = prakiraan tiket ÷ (kursi per pertunjukan × okupansi target 40%), dibulatkan ke atas, minimal 1 bila masih ada tiket, dan tidak melebihi kapasitas klaster.
+- **Keandalan** = porsi saran yang klaimnya terbukti pada data validasi (Apr–Sep 2025, 7.043 pasangan dengan penjualan aktual). Di bawah 50%, dashboard menulis "lemah, cek H-1".
+
+| # | Saran | Kondisi (dicek pada prakiraan D4–D10) | Yang dilakukan manajer | Jadwal yang ditampilkan | Dianggap terbukti bila (aktual) | Keandalan |
+|---|---|---|---|---|---|---|
+| 1 | **Lepas layar** | Prakiraan dibulatkan 0 tiket dari suatu hari sampai D10 | Mulai hari itu, berikan layar ke film lain | Pertunjukan sekarang → 0 | Penjualan aktual D10 = 0 | 90% (2.680 kasus) |
+| 2 | **Tambah jadwal** | Rasio tertinggi di Sabtu/Minggu dalam D4–D10 ≥ 1× | Tambah pertunjukan di akhir pekan | Pertunjukan sekarang → kebutuhan di hari puncak. Bila jadwal sekarang sudah menampung, ditulis "cukup": siapkan cadangan dan putuskan dari penjualan H-1 | Rasio aktual di Sabtu/Minggu itu ≥ 1× | 81% (2.466 kasus) |
+| 3 | **Jadwal ekstra** | Hari libur nasional atau cuti bersama (D5–D10) yang tiketnya ≥ +20% dibanding hari sebelumnya | Buka jadwal tambahan di hari libur itu | Kebutuhan hari sebelumnya → kebutuhan hari libur | Aktual hari libur ≥ 1,2× aktual hari sebelumnya | 39% (183 kasus), lemah: cek penjualan H-1 dulu |
+| 4 | **Pertahankan** | Rata-rata rasio D8–D10 (pekan kedua) ≥ 0,5× | Jadwal tetap sampai D10 | Pertunjukan sekarang → kebutuhan tertinggi D8–D10 | Rata-rata rasio aktual D8–D10 ≥ 0,5× | 31% (140 kasus), lemah |
+| 5 | **Kurangi** | Selain di atas; mulai dari hari pertama rasio < 0,5× | Turunkan jumlah pertunjukan mulai hari itu | Pertunjukan sekarang → kebutuhan hari itu | Rata-rata rasio aktual dari hari itu sampai D10 < 0,5× | 73% (1.574 kasus) |
+
+Catatan:
+
+- **Urutan penting.** Contoh: film yang rasionya ≥ 1× di hari Sabtu mendapat *Tambah jadwal* walaupun pekan keduanya juga turun. Panel **Kenapa saran ini** di tab Simulasi menunjukkan aturan mana yang tidak terpenuhi, mana yang berlaku, dan angka yang dibaca tiap aturan.
+- **Saran membaca arah permintaan, bukan kursi.** Karena itu *Tambah jadwal* bisa muncul walaupun kursi sekarang sudah cukup. Kolom jadwal lalu menulis "cukup".
+- **Lebaran 2026** tidak ada di data validasi, jadi keandalannya tidak ditampilkan dan levelnya ditandai belum terukur. Lima judul Lebaran punya dua skenario (F2 utama, F1 tinggi), dan sarannya sama di keduanya.
+- **Film baru** (isi manual) memakai estimasi cepat, lalu diperiksa dengan aturan yang sama. Pakai sebagai arah, bukan angka pasti.
 
 Versi awal memakai aturan kapasitas yang berbeda dari kartu presentasi. Versi ini memakai satu aturan yang sama di semua tempat, dan `check_rules.mjs` memeriksanya terhadap Python pada semua pasangan.
 
