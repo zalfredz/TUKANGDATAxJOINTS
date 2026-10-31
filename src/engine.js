@@ -1,5 +1,6 @@
 // Pure logic: calendar, number formats, the deck's five ordered rules, schedule and revenue. No DOM here.
 const HARI = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+const HARI_PANJANG = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 const BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
 // Thresholds of the rule card (deck fig17, Q-B4).
@@ -35,6 +36,7 @@ const tgl = (iso, year = false) => {
   return `${d.getUTCDate()} ${BULAN[d.getUTCMonth()]}${year ? ` ${d.getUTCFullYear()}` : ''}`;
 };
 const hari = (iso) => HARI[dowOf(iso)];
+const hariPanjang = (iso) => HARI_PANJANG[dowOf(iso)];
 const hariTgl = (iso, year = false) => `${hari(iso)} ${tgl(iso, year)}`;
 
 const calOf = (iso) => DATA.cal[iso];
@@ -84,9 +86,15 @@ function holidayCheck(rounded, dates) {
   return -1;
 }
 const upliftText = (rounded, i) => (rounded[i - 1] > 0 ? fmtSignedPct(rounded[i] / rounded[i - 1] - 1) : 'naik dari 0');
+/** Reason under the saran, worded like the deck card: "+54% dari 31 Des". */
+const upliftWhy = (rounded, dates, i) => (rounded[i - 1] > 0 ? `${upliftText(rounded, i)} dari ${tgl(dates[i - 1])}` : `naik dari 0 tiket ${tgl(dates[i - 1])}`);
 const holidayLabel = (iso) => (holidayShort(iso) === 'Cuti bersama' ? 'cuti bersama' : holidayShort(iso));
 
-/** The deck's rule card, checked in order. fc = 7 daily forecasts (D4..D10), avg = mean D1-D3 (min 1). */
+/**
+ * The deck's rule card, checked in order. fc = 7 daily forecasts (D4..D10), avg = mean D1-D3 (min 1).
+ * i = the day the saran starts from; mark = the day(s) the rule read ("hari yang jadi dasar saran" on the deck card);
+ * why = the reason line under the saran, in the deck's words.
+ */
 function decide(fc, avg, dates) {
   const rounded = fc.map((v) => Math.round(v));
   const ratio = fc.map((v) => v / avg);
@@ -97,18 +105,18 @@ function decide(fc, avg, dates) {
   const cutFrom = ratio.findIndex((r) => r < RULE.CUT);
 
   if (zeroFrom >= 0) {
-    return { rounded, kind: 'lepas', i: zeroFrom, mark: [zeroFrom], action: `Lepas layar ${tgl(dates[zeroFrom])}`, why: `0 tiket sejak ${hari(dates[zeroFrom])} (D${zeroFrom + 4})` };
+    return { rounded, kind: 'lepas', i: zeroFrom, mark: [zeroFrom], action: `Lepas teater ${tgl(dates[zeroFrom])}`, why: '0 tiket' };
   }
   if (wk.max >= RULE.ADD) {
-    return { rounded, kind: 'tambah', i: wk.best, mark: wk.days.filter((i) => ratio[i] >= RULE.ADD), action: 'Tambah jadwal Sab–Min', why: `${hari(dates[wk.best])}: ${fmtX(wk.max)} rata-rata` };
+    return { rounded, kind: 'tambah', i: wk.best, mark: [wk.best], action: 'Tambah jadwal Sab–Min', why: `${hariPanjang(dates[wk.best])} di atas rata-rata` };
   }
   if (hol >= 0) {
-    return { rounded, kind: 'libur', i: hol, mark: [hol], action: `Jadwal ekstra ${tgl(dates[hol])}`, why: `${holidayLabel(dates[hol])}: ${upliftText(rounded, hol)} vs ${hari(dates[hol - 1])}` };
+    return { rounded, kind: 'libur', i: hol, mark: [hol], action: `Jadwal ekstra ${tgl(dates[hol])}`, why: upliftWhy(rounded, dates, hol) };
   }
   if (tail >= RULE.KEEP) {
-    return { rounded, kind: 'tahan', i: 4, mark: [4, 5, 6], action: 'Pertahankan layar', why: `pekan 2: ${fmtX(tail)} rata-rata` };
+    return { rounded, kind: 'tahan', i: 4, mark: [4, 5, 6], action: 'Pertahankan teater', why: `pekan 2: ${fmtX(tail)} rata-rata` };
   }
-  return { rounded, kind: 'kurangi', i: cutFrom, mark: [cutFrom], action: `Kurangi mulai ${tgl(dates[cutFrom])}`, why: `${hari(dates[cutFrom])}: turun ke ${fmtX(ratio[cutFrom])}` };
+  return { rounded, kind: 'kurangi', i: cutFrom, mark: [cutFrom], action: `Kurangi mulai ${tgl(dates[cutFrom])}`, why: `turun ke ${fmtX(ratio[cutFrom])}` };
 }
 
 /**
@@ -162,7 +170,8 @@ const peakIndex = (xs, from = 0) => xs.reduce((best, x, i) => (i >= from && x > 
 
 /**
  * One-line schedule advice next to the saran. A rule reads the direction of demand; it can ask for more
- * shows while today's seats already cover the forecast, so that case says "cukup" instead of a confusing number.
+ * shows while today's seats already cover the forecast (or ask to cut while the schedule is already at what
+ * the day needs), so those cases say "cukup" instead of a number that contradicts the saran.
  */
 function scheduleAdvice(decision, plan, showsNow, dates) {
   const { kind, i } = decision;
@@ -171,16 +180,18 @@ function scheduleAdvice(decision, plan, showsNow, dates) {
     return { kind: 'change', from: plan.need[i - 1], to: plan.need[i], note: `${hari(dates[i - 1])} → ${hari(dates[i])}` };
   }
   if (kind === 'tambah') {
-    const peak = peakIndex(plan.need);
-    const to = plan.need[peak];
-    const capped = plan.capped[peak] ? ' · batas klaster' : '';
-    if (to > showsNow) return { kind: 'change', from: showsNow, to, note: `puncak ${hari(dates[peak])}${capped}` };
-    return { kind: 'enough', from: showsNow, to, note: `puncak ${hari(dates[peak])} butuh ${fmtInt(to)}` };
+    // the peak is the Sat/Sun the rule fired on, so "add shows on the weekend" never quotes a weekday's need
+    const to = plan.need[i];
+    const capped = plan.capped[i] ? ' · batas klaster' : '';
+    if (to > showsNow) return { kind: 'change', from: showsNow, to, note: `puncak ${hari(dates[i])}${capped}` };
+    return { kind: 'enough', from: showsNow, to, note: `puncak ${hari(dates[i])} butuh ${fmtInt(to)}` };
   }
   if (kind === 'tahan') {
     const peak = peakIndex(plan.need, 4);
     return { kind: 'change', from: showsNow, to: plan.need[peak], note: 'pekan 2' };
   }
+  // kurangi: never tell the manager to "reduce" to a number at or above today's schedule
+  if (plan.need[i] >= showsNow) return { kind: 'enough', from: showsNow, to: plan.need[i], note: `mulai ${hari(dates[i])} butuh ${fmtInt(plan.need[i])}` };
   return { kind: 'change', from: showsNow, to: plan.need[i], note: `mulai ${hari(dates[i])}` };
 }
 

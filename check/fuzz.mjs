@@ -60,6 +60,22 @@ test('a filtered card shows only that saran, and says so when it is empty', () =
   assert.ok(U.managerBodyHtml(card, 'tahan').includes('Tidak ada film'));
 });
 
+test('the manager card reads like the deck card: biggest film first, daily numbers, reason line, one morning', () => {
+  const yogya = U.clusterIndex('Yogyakarta', 'A');
+  const card = U.cardFor(SETS.test, yogya, '2025-12-27', TARGET);
+  const body = U.managerBodyHtml(card, null);
+  const order = ['Janur Ireng', 'The SpongeBob', 'Comic 8', 'Patah Hati'].map((t) => body.indexOf(t));
+  assert.deepEqual([...order].sort((a, b) => a - b), order);
+  ['1.239', '778', '578', '232', '+54% dari 31 Des', 'Sabtu di atas rata-rata', 'turun ke 0,22×', 'Lepas teater 31 Des'].forEach((s) => assert.ok(body.includes(s), s));
+  assert.equal(U.managerCaptionText(card, yogya, '2025-12-27'), 'Klaster Yogyakarta A · 4 film rilis Rabu, 24 Des 2025');
+  const head = U.managerHeadHtml(card, '2025-12-27');
+  assert.ok(head.includes('Sab<br>27 Des') && head.includes('Jum<br>2 Jan'));
+  assert.ok(U.managerHeadHtml(card, U.ALL_MORNINGS).includes('D10'));
+  // each row: film + 3 sold + average + 7 forecast + total + schedule + saran = 15 cells, as many as the header
+  const cells = (body.split('</tr>')[0].match(/<td/g) || []).length;
+  assert.equal(cells, 15);
+});
+
 test('validation cards compare the saran with what happened', () => {
   const [cl] = [...SETS.val.byCluster.keys()];
   const card = U.cardFor(SETS.val, cl, U.ALL_MORNINGS, TARGET);
@@ -127,14 +143,14 @@ test('test pairs show reliability but no MASE; validation pairs show both', () =
 test('thirteen test cases resolve to the saran their notes describe', () => {
   const EXPECTED = {
     janur: 'Jadwal ekstra 1 Jan',
-    balas: 'Lepas layar 10 Feb',
-    jumat: 'Lepas layar 11 Des',
+    balas: 'Lepas teater 10 Feb',
+    jumat: 'Lepas teater 11 Des',
     natal: 'Tambah jadwal Sab–Min',
     isra: 'Jadwal ekstra 16 Jan',
     lebaran: 'Tambah jadwal Sab–Min',
     habis: 'Tambah jadwal Sab–Min',
-    lokasi: 'Lepas layar 5 Des',
-    imax: 'Lepas layar 12 Nov',
+    lokasi: 'Lepas teater 5 Des',
+    imax: 'Lepas teater 12 Nov',
     kursi: 'Tambah jadwal Sab–Min',
     pola3: 'Tambah jadwal Sab–Min',
     nyepi: 'Tambah jadwal Sab–Min',

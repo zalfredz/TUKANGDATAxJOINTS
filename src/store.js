@@ -1,6 +1,6 @@
 // Data access and the manager's card. Reads DATA (flat columns from data.json); still no DOM.
 const KIND_ORDER = ['tambah', 'libur', 'tahan', 'kurangi', 'lepas'];
-const KIND_LABEL = { lepas: 'Lepas layar', tambah: 'Tambah jadwal', libur: 'Jadwal ekstra', tahan: 'Pertahankan', kurangi: 'Kurangi' };
+const KIND_LABEL = { lepas: 'Lepas teater', tambah: 'Tambah jadwal', libur: 'Jadwal ekstra', tahan: 'Pertahankan', kurangi: 'Kurangi' };
 const ALL_MORNINGS = 'semua';
 
 const clusterName = (cl) => {

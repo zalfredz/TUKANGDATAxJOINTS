@@ -13,11 +13,12 @@ const test = (name, fn) => {
 const KINDS = ['lepas', 'tambah', 'libur', 'tahan', 'kurangi'];
 
 // Deck p.25 / 06_FAKTA_ANGKA part F. These numbers are the contract with the slides.
+// mark = the day drawn dark on the slide ("Ungu tua = hari yang jadi dasar saran"); 0 = Sab 27 Des ... 6 = Jum 2 Jan.
 const CARD = [
-  { t: 'Janur Ireng: Sewu Dino The Prequel', y: [1239, 673, 422], f: [578, 536, 446, 399, 151, 232, 177], act: 'Jadwal ekstra 1 Jan', why: 'Tahun Baru: +54% vs Rab' },
-  { t: 'The SpongeBob Movie: Search for SquarePants', y: [437, 427, 392], f: [455, 436, 356, 329, 131, 177, 193], act: 'Tambah jadwal Sab–Min', why: 'Sab: 1,09× rata-rata' },
-  { t: 'Comic 8 Revolution: Santet K4binet', y: [330, 362, 198], f: [246, 232, 209, 187, 65, 51, 39], act: 'Kurangi mulai 31 Des', why: 'Rab: turun ke 0,22×' },
-  { t: 'Patah Hati yang Kupilih', y: [236, 133, 101], f: [101, 84, 51, 28, 0, 0, 0], act: 'Lepas layar 31 Des', why: '0 tiket sejak Rab (D8)' },
+  { t: 'Janur Ireng: Sewu Dino The Prequel', y: [1239, 673, 422], f: [578, 536, 446, 399, 151, 232, 177], act: 'Jadwal ekstra 1 Jan', why: '+54% dari 31 Des', mark: [5] },
+  { t: 'The SpongeBob Movie: Search for SquarePants', y: [437, 427, 392], f: [455, 436, 356, 329, 131, 177, 193], act: 'Tambah jadwal Sab–Min', why: 'Sabtu di atas rata-rata', mark: [0] },
+  { t: 'Comic 8 Revolution: Santet K4binet', y: [330, 362, 198], f: [246, 232, 209, 187, 65, 51, 39], act: 'Kurangi mulai 31 Des', why: 'turun ke 0,22×', mark: [4] },
+  { t: 'Patah Hati yang Kupilih', y: [236, 133, 101], f: [101, 84, 51, 28, 0, 0, 0], act: 'Lepas teater 31 Des', why: '0 tiket', mark: [4] },
 ];
 const yogyaA = DATA.clusters.findIndex((c, i) => E.clusterName(i) === 'Klaster Yogyakarta A');
 
@@ -35,6 +36,25 @@ test('Saturday 27 Dec 2025 card equals the deck, film by film', () => {
     assert.deepEqual(row.pair.decision.rounded, want.f);
     assert.equal(row.pair.decision.action, want.act);
     assert.equal(row.pair.decision.why, want.why);
+    assert.deepEqual(row.pair.decision.mark, want.mark);
+    assert.equal(Math.round(row.pair.avg), [778, 419, 297, 157][n]);
+  });
+});
+
+test('schedule advice never contradicts its saran on any pair', () => {
+  Object.values(SETS).forEach((set) => {
+    for (let i = 0; i < set.n; i += 1) {
+      const p = E.pairOf(set, i);
+      const plan = E.schedule(p.fc, p.seat, p.showsNow, 0.4, DATA.clusters[p.cl].cap);
+      const a = E.scheduleAdvice(p.decision, plan, p.showsNow, p.dates);
+      if (p.decision.kind === 'tambah') {
+        // "Tambah jadwal Sab–Min" quotes the need of the Sat/Sun the rule fired on, never a weekday
+        assert.ok(E.isWeekend(p.dates[p.decision.i]), `${set.mode} ${i}: peak not on a weekend`);
+        assert.equal(a.to, plan.need[p.decision.i]);
+        assert.equal(a.kind === 'change', a.to > a.from, `${set.mode} ${i}`);
+      }
+      if (p.decision.kind === 'kurangi' && a.kind === 'change') assert.ok(a.to < a.from, `${set.mode} ${i}: kurangi ${a.from} -> ${a.to}`);
+    }
   });
 });
 
