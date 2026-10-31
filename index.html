@@ -140,7 +140,7 @@ td small.why{margin-top:5px;font-family:var(--sans);font-size:11px}
   <div class="brand"><i>TD</i><span>TUKANG<b>DATA</b></span></div>
   <nav class="tabs" role="tablist">
     <button role="tab" id="t-sim" aria-selected="true" data-v="sim" type="button">Simulasi</button>
-    <button role="tab" id="t-man" aria-selected="false" data-v="man" type="button">Manajer</button>
+    <button role="tab" id="t-man" aria-selected="false" data-v="man" type="button">Ringkasan Klaster</button>
   </nav>
 </div></header>
 
@@ -600,7 +600,7 @@ const quickFamilyOf = (rawTitle) => {
   return fam === undefined ? -1 : fam;
 };
 
-// The two pages: Simulasi (one film in one cluster) and Manajer (the new films of a cluster on one morning).
+// The two pages: Simulasi (one film in one cluster) and Ringkasan Klaster (the new films of a cluster on one morning).
 const $ = (id) => document.getElementById(id);
 const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);

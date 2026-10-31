@@ -1,4 +1,4 @@
-// The two pages: Simulasi (one film in one cluster) and Manajer (the new films of a cluster on one morning).
+// The two pages: Simulasi (one film in one cluster) and Ringkasan Klaster (the new films of a cluster on one morning).
 const $ = (id) => document.getElementById(id);
 const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
