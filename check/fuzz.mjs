@@ -140,13 +140,31 @@ test('test pairs show reliability but no MASE; validation pairs show both', () =
   assert.ok(U.chartHtml(val).includes('class="act"'));
 });
 
+test('the weekend and holiday rules show as one saran, with reliability kept per rule', () => {
+  assert.deepEqual(U.SARAN_ORDER, ['tambah', 'tahan', 'kurangi', 'lepas']);
+  assert.equal(U.KIND_LABEL.libur, U.KIND_LABEL.tambah);
+  const yogya = U.clusterIndex('Yogyakarta', 'A');
+  const card = U.cardFor(SETS.test, yogya, '2025-12-27', TARGET);
+  const counts = U.managerCountsHtml(card, null);
+  assert.equal((counts.match(/<button/g) || []).length, 4);
+  assert.ok(counts.includes('2 Tambah jadwal'), counts); // Janur Ireng (holiday) + SpongeBob (weekend)
+  const onlyAdd = U.managerBodyHtml(card, 'tambah');
+  assert.ok(onlyAdd.includes('Janur Ireng') && onlyAdd.includes('The SpongeBob') && !onlyAdd.includes('Comic 8'));
+  const summary = U.managerSummaryHtml(card);
+  assert.equal((summary.match(/Tambah jadwal/g) || []).length, 1);
+  assert.ok(summary.includes('hari libur') && summary.includes('akhir pekan'), summary);
+  Object.values(SETS).forEach((set) => {
+    for (let i = 0; i < set.n; i += 1) assert.ok(!U.pairOf(set, i).decision.action.includes('ekstra'), `${set.mode} ${i}`);
+  });
+});
+
 test('thirteen test cases resolve to the saran their notes describe', () => {
   const EXPECTED = {
-    janur: 'Jadwal ekstra 1 Jan',
+    janur: 'Tambah jadwal 1 Jan',
     balas: 'Lepas teater 10 Feb',
     jumat: 'Lepas teater 11 Des',
     natal: 'Tambah jadwal Sab–Min',
-    isra: 'Jadwal ekstra 16 Jan',
+    isra: 'Tambah jadwal 16 Jan',
     lebaran: 'Tambah jadwal Sab–Min',
     habis: 'Tambah jadwal Sab–Min',
     lokasi: 'Lepas teater 5 Des',

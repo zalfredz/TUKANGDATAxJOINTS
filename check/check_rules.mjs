@@ -14,8 +14,10 @@ const KINDS = ['lepas', 'tambah', 'libur', 'tahan', 'kurangi'];
 
 // Deck p.25 / 06_FAKTA_ANGKA part F. These numbers are the contract with the slides.
 // mark = the day drawn dark on the slide ("Ungu tua = hari yang jadi dasar saran"); 0 = Sab 27 Des ... 6 = Jum 2 Jan.
+// The slide calls Janur Ireng's saran "Jadwal ekstra 1 Jan" with "+54% dari 31 Des"; the dashboard shows the same
+// holiday rule under the shared name Tambah jadwal and marks the holiday in the reason.
 const CARD = [
-  { t: 'Janur Ireng: Sewu Dino The Prequel', y: [1239, 673, 422], f: [578, 536, 446, 399, 151, 232, 177], act: 'Jadwal ekstra 1 Jan', why: '+54% dari 31 Des', mark: [5] },
+  { t: 'Janur Ireng: Sewu Dino The Prequel', y: [1239, 673, 422], f: [578, 536, 446, 399, 151, 232, 177], act: 'Tambah jadwal 1 Jan', why: 'Hari libur: +54% dari 31 Des', mark: [5] },
   { t: 'The SpongeBob Movie: Search for SquarePants', y: [437, 427, 392], f: [455, 436, 356, 329, 131, 177, 193], act: 'Tambah jadwal Sab–Min', why: 'Sabtu di atas rata-rata', mark: [0] },
   { t: 'Comic 8 Revolution: Santet K4binet', y: [330, 362, 198], f: [246, 232, 209, 187, 65, 51, 39], act: 'Kurangi mulai 31 Des', why: 'turun ke 0,22×', mark: [4] },
   { t: 'Patah Hati yang Kupilih', y: [236, 133, 101], f: [101, 84, 51, 28, 0, 0, 0], act: 'Lepas teater 31 Des', why: '0 tiket', mark: [4] },

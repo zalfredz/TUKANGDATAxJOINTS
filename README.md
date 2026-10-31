@@ -14,6 +14,8 @@ Buka `index.html` di browser. Satu file, data dan font sudah tertanam, jadi bisa
 
 Sama dengan kartu di presentasi. Lima aturan diperiksa **berurutan**, dan aturan pertama yang terpenuhi menjadi saran. Jadi satu film selalu mendapat tepat satu saran.
 
+Di dashboard, aturan 2 dan 3 tampil sebagai **satu saran, Tambah jadwal**, karena tindakannya sama: menambah pertunjukan. Yang membedakan hanya pemicunya, dan itu terlihat di kalimat saran serta alasannya: *Tambah jadwal Sab–Min* · "Sabtu di atas rata-rata" untuk akhir pekan, *Tambah jadwal 1 Jan* · "Hari libur: +54% dari 31 Des" untuk hari libur. Di slide presentasi, aturan 3 masih bernama *Jadwal ekstra*; artinya sama dengan *Tambah jadwal* yang dipicu hari libur. Keandalan tetap dihitung per aturan, karena pemicu hari libur jauh lebih jarang terbukti (39%) dibanding akhir pekan (81%).
+
 Istilah yang dipakai:
 
 - **D1–D3** = tiga hari pertama yang sudah terjual. **D4–D10** = tujuh hari yang diprakirakan.
@@ -24,8 +26,8 @@ Istilah yang dipakai:
 | # | Saran | Kondisi (dicek pada prakiraan D4–D10) | Hari dasar saran (diwarnai) dan alasan | Yang dilakukan manajer | Jadwal yang ditampilkan | Dianggap terbukti bila (aktual) | Keandalan |
 |---|---|---|---|---|---|---|---|
 | 1 | **Lepas teater** | Prakiraan dibulatkan 0 tiket dari suatu hari sampai D10 | Hari pertama 0 tiket · "0 tiket" | Mulai hari itu, berikan teater ke film lain | Pertunjukan sekarang → 0 | Penjualan aktual D10 = 0 | 90% (2.680 kasus) |
-| 2 | **Tambah jadwal** | Rasio tertinggi di Sabtu/Minggu dalam D4–D10 ≥ 1× | Sabtu/Minggu dengan rasio tertinggi · "Sabtu di atas rata-rata" | Tambah pertunjukan di akhir pekan | Pertunjukan sekarang → kebutuhan di Sabtu/Minggu puncak itu (bukan hari kerja). Bila jadwal sekarang sudah menampung, ditulis "cukup": siapkan cadangan dan putuskan dari penjualan H-1 | Rasio aktual di Sabtu/Minggu itu ≥ 1× | 81% (2.466 kasus) |
-| 3 | **Jadwal ekstra** | Hari libur nasional atau cuti bersama (D5–D10) yang tiketnya ≥ +20% dibanding hari sebelumnya | Hari libur itu · "+54% dari 31 Des" | Buka jadwal tambahan di hari libur itu | Kebutuhan hari sebelumnya → kebutuhan hari libur | Aktual hari libur ≥ 1,2× aktual hari sebelumnya | 39% (183 kasus), lemah: cek penjualan H-1 dulu |
+| 2 | **Tambah jadwal** (akhir pekan) | Rasio tertinggi di Sabtu/Minggu dalam D4–D10 ≥ 1× | Sabtu/Minggu dengan rasio tertinggi · "Sabtu di atas rata-rata" | Tambah pertunjukan di akhir pekan | Pertunjukan sekarang → kebutuhan di Sabtu/Minggu puncak itu (bukan hari kerja). Bila jadwal sekarang sudah menampung, ditulis "cukup": siapkan cadangan dan putuskan dari penjualan H-1 | Rasio aktual di Sabtu/Minggu itu ≥ 1× | 81% (2.466 kasus) |
+| 3 | **Tambah jadwal** (hari libur; di slide: *Jadwal ekstra*) | Hari libur nasional atau cuti bersama (D5–D10) yang tiketnya ≥ +20% dibanding hari sebelumnya | Hari libur itu · "Hari libur: +54% dari 31 Des" | Buka jadwal tambahan di hari libur itu | Kebutuhan hari sebelumnya → kebutuhan hari libur | Aktual hari libur ≥ 1,2× aktual hari sebelumnya | 39% (183 kasus), lemah: cek penjualan H-1 dulu |
 | 4 | **Pertahankan** | Rata-rata rasio D8–D10 (pekan kedua) ≥ 0,5× | D8–D10 · "pekan 2: 0,62× rata-rata" | Jadwal tetap sampai D10 | Pertunjukan sekarang → kebutuhan tertinggi D8–D10 | Rata-rata rasio aktual D8–D10 ≥ 0,5× | 31% (140 kasus), lemah |
 | 5 | **Kurangi** | Selain di atas; mulai dari hari pertama rasio < 0,5× | Hari pertama rasio < 0,5× · "turun ke 0,22×" | Turunkan jumlah pertunjukan mulai hari itu | Pertunjukan sekarang → kebutuhan hari itu. Bila jadwal sekarang sudah sama atau di bawah kebutuhan, ditulis "cukup" (jangan tambah) | Rata-rata rasio aktual dari hari itu sampai D10 < 0,5× | 73% (1.574 kasus) |
 
@@ -42,7 +44,7 @@ Versi awal memakai aturan kapasitas yang berbeda dari kartu presentasi. Versi in
 ## Data
 
 - **Data uji (Okt 2025–Mar 2026), 10.373 pasangan:** prakiraan final `F2.csv`. Untuk 5 judul Lebaran, `F1.csv` menjadi skenario tinggi. Aktualnya belum ada.
-- **Data validasi (Apr–Sep 2025), 7.043 pasangan:** prakiraan validasi silang model akhir, dengan aktual. Dari sini keandalan tiap saran dihitung (porsi klaim yang terbukti): Lepas 90%, Tambah 81%, Kurangi 73%, Jadwal ekstra 39%, Pertahankan 31%. Di bawah 50% dashboard menulis "lemah, cek H-1". Kohort Lebaran belum terukur.
+- **Data validasi (Apr–Sep 2025), 7.043 pasangan:** prakiraan validasi silang model akhir, dengan aktual. Dari sini keandalan tiap saran dihitung (porsi klaim yang terbukti): Lepas 90%, Tambah jadwal akhir pekan 81%, Kurangi 73%, Tambah jadwal hari libur 39%, Pertahankan 31%. Di bawah 50% dashboard menulis "lemah, cek H-1". Kohort Lebaran belum terukur.
 
 ## Lapisan tambahan (asumsi, bukan keluaran model)
 

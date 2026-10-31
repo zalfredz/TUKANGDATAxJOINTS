@@ -89,6 +89,8 @@ const upliftText = (rounded, i) => (rounded[i - 1] > 0 ? fmtSignedPct(rounded[i]
 /** Reason under the saran, worded like the deck card: "+54% dari 31 Des". */
 const upliftWhy = (rounded, dates, i) => (rounded[i - 1] > 0 ? `${upliftText(rounded, i)} dari ${tgl(dates[i - 1])}` : `naik dari 0 tiket ${tgl(dates[i - 1])}`);
 const holidayLabel = (iso) => (holidayShort(iso) === 'Cuti bersama' ? 'cuti bersama' : holidayShort(iso));
+/** "Hari libur" / "Cuti bersama": marks a holiday Tambah jadwal apart from a weekend one (the chart names the holiday). */
+const holidayWhy = (iso) => (holidayShort(iso) === 'Cuti bersama' ? 'Cuti bersama' : 'Hari libur');
 
 /**
  * The deck's rule card, checked in order. fc = 7 daily forecasts (D4..D10), avg = mean D1-D3 (min 1).
@@ -111,7 +113,7 @@ function decide(fc, avg, dates) {
     return { rounded, kind: 'tambah', i: wk.best, mark: [wk.best], action: 'Tambah jadwal Sab–Min', why: `${hariPanjang(dates[wk.best])} di atas rata-rata` };
   }
   if (hol >= 0) {
-    return { rounded, kind: 'libur', i: hol, mark: [hol], action: `Jadwal ekstra ${tgl(dates[hol])}`, why: upliftWhy(rounded, dates, hol) };
+    return { rounded, kind: 'libur', i: hol, mark: [hol], action: `Tambah jadwal ${tgl(dates[hol])}`, why: `${holidayWhy(dates[hol])}: ${upliftWhy(rounded, dates, hol)}` };
   }
   if (tail >= RULE.KEEP) {
     return { rounded, kind: 'tahan', i: 4, mark: [4, 5, 6], action: 'Pertahankan teater', why: `pekan 2: ${fmtX(tail)} rata-rata` };
