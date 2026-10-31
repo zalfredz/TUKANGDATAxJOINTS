@@ -1,216 +1,524 @@
-const $ = id => document.getElementById(id);
-const fmtN = n => Math.round(n).toLocaleString('id-ID');
-const fmtX = x => x.toFixed(2).replace('.', ',') + '×';
-const fmtD = iso => { const d = new Date(iso+'T00:00:00Z'); return `${DOW[d.getUTCDay()]} ${d.getUTCDate()} ${MON[d.getUTCMonth()]}`; };
-const famOf = name => DATA.films.findIndex(f => f.toLowerCase() === name.trim().toLowerCase().replace(/ \((imax 2d|imax 3d|3d)\)$/,''));
-// Short holiday names for display (full names come from the SKB calendar)
-const HOL = [[/Muharam|Tahun Baru Islam/,'Tahun Baru Islam'],[/Idulfitri/,'Idulfitri'],[/Idul ?Adha|Iduladha/,'Iduladha'],[/Waisak/,'Waisak'],
-  [/Kelahiran Yesus|Natal/,'Natal'],[/Imlek/,'Imlek'],[/Tahun Baru 20/,'Tahun Baru'],[/Nyepi/,'Nyepi'],[/Wafat Yesus/,'Jumat Agung'],
-  [/Paskah/,'Paskah'],[/Kenaikan Yesus/,'Kenaikan Yesus'],[/Isra Mikraj/,'Isra Mikraj'],[/Maulid/,'Maulid Nabi'],[/Buruh/,'Hari Buruh'],
-  [/Kemerdekaan|HUT RI/,'HUT RI'],[/Pancasila/,'Hari Pancasila']];
-function holShort(iso){
-  const h = holiday(iso); if(!h) return '';
-  const base = (HOL.find(([re]) => re.test(h)) || [0, h])[1];
-  return /^Cuti bersama/.test(h) ? `Cuti ${base}` : base;
+// The two pages: Simulasi (one film in one cluster) and Manajer (the new films of a cluster on one morning).
+const $ = (id) => document.getElementById(id);
+const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
+
+const NEW_FILM = '__new';
+const MIN_D1 = '2025-03-01';
+const MAX_D1 = '2026-04-21';
+const MAX_TICKETS = 100000;
+const MAX_THEATERS = 30;
+const SEATS_PER_SHOW = 149; // median of the train data (kit 06_FAKTA_ANGKA part B)
+const SHOWS_PER_THEATER = 5;
+const TARGET = DEFAULT_TARGET_OCCUPANCY;
+const SCHOOL_HOLIDAY_WEIGHT = 0.91;
+const CHART_MAX_CAPACITY_RATIO = 2; // above this the capacity line would flatten the bars, so it is not drawn
+const CHART_HEADROOM = 1.05;
+const CHART_DAYS = 10;
+const SPARK_HEIGHT = 26;
+const INPUT_DELAY_MS = 250;
+const SET_NAME = { test: 'Data uji', val: 'Data validasi' };
+const WEEK_GROUPS = ['Hari biasa', 'Libur nasional', 'Libur sekolah'];
+const KIND_COLOR = { tambah: 'var(--tambah)', libur: 'var(--goldl)', tahan: 'var(--pertahankan)', kurangi: 'var(--kurangi)', lepas: 'var(--turunkan)' };
+const START_CASE = 'janur';
+const MANAGER_START = Object.freeze({ city: 'Yogyakarta', letter: 'A', t: '2025-12-27' });
+
+// Real test-data situations, offered first in the film list. Notes stay short: the chart carries the numbers.
+const CASES = [
+  { id: 'janur', label: 'Kartu Sabtu pagi · Janur Ireng', title: 'Janur Ireng: Sewu Dino The Prequel', city: 'Yogyakarta', letter: 'A', note: 'Kartu di presentasi.' },
+  { id: 'balas', label: 'Lepas cepat · Balas Budi', title: 'Balas Budi', city: 'Tangerang', letter: 'B', note: 'Layar bisa dipakai film lain.' },
+  { id: 'jumat', label: 'Rilis Jumat tergeser · 13 Days, 13 Nights', title: '13 Days, 13 Nights', city: 'Jakarta', letter: 'C', note: 'Film Jumat lebih cepat tergeser.' },
+  { id: 'natal', label: 'Natal di hari kerja · Avatar', title: 'Avatar: Fire and Ash', city: 'Jakarta', letter: 'A', note: 'Natal Kamis, siapkan seperti akhir pekan.' },
+  { id: 'isra', label: 'Sinyal libur lemah · Malam 3 Yasinan', title: 'Malam 3 Yasinan', city: 'Jakarta', letter: 'A', note: 'Cek penjualan H-1 dulu.' },
+  { id: 'lebaran', label: 'Dua skenario Lebaran · Na Willa', title: 'Na Willa', city: 'Yogyakarta', letter: 'A', note: 'Level Lebaran belum terukur.' },
+  { id: 'habis', label: 'Terjual habis · Alas Roban', title: 'Alas Roban', city: 'Pekalongan', letter: 'A', note: 'Permintaan terpotong kursi.' },
+  { id: 'lokasi', label: 'Beda lokasi · Zootopia 2, Manado', title: 'Zootopia 2', city: 'Manado', letter: 'B', note: 'Di Jakarta A sarannya tambah jadwal.' },
+  { id: 'imax', label: 'IMAX tergeser · Predator', title: 'Predator: Badlands (IMAX 2D)', city: 'Jakarta', letter: 'A', note: 'Layar diambil film IMAX baru.' },
+  { id: 'kursi', label: 'Kursi sudah cukup · Number One', title: 'Number One', city: 'Jakarta', letter: 'A', note: 'Permintaan naik, kursi masih longgar.' },
+  { id: 'pola3', label: 'Hanya D3 terjual · Sampai Titik Terakhirmu', title: 'Sampai Titik Terakhirmu', city: 'Kendari', letter: 'A', note: 'Baca tiketnya, bukan rasionya.' },
+  { id: 'nyepi', label: 'Nyepi di D2 · Danur, Denpasar', title: 'Danur: The Last Chapter', city: 'Denpasar', letter: 'A', note: 'Tiga hari pertama tidak normal.' },
+  { id: 'ramadan', label: 'Turun mulai Senin · Blades of the Guardians', title: 'Blades of the Guardians', city: 'Jakarta', letter: 'A', note: 'Akhir pekan masih kuat.' },
+];
+
+const clusterIndex = (city, letter) => DATA.clusters.findIndex((c) => DATA.cities[c.c] === city && c.l === letter);
+const byCityName = (a, b) => DATA.cities[a].localeCompare(DATA.cities[b], 'id');
+const toNumber = (v) => (String(v).trim() === '' ? NaN : Number(v)); // Number('') would quietly become 0
+const isWholeInRange = (x, lo, hi) => Number.isInteger(x) && x >= lo && x <= hi;
+const actionDays = (d) => (d.kind === 'lepas' || d.kind === 'kurangi' ? [0, 1, 2, 3, 4, 5, 6].filter((i) => i >= d.i) : d.mark);
+const jadwalText = (a) => (a.kind === 'enough' ? `${fmtInt(a.from)} cukup` : `${fmtInt(a.from)} → ${fmtInt(a.to)}`);
+const kpiHtml = (label, value, note = '') => `<div class="kpi"><span>${esc(label)}</span><b>${esc(value)}</b>${note ? `<small>${esc(note)}</small>` : ''}</div>`;
+
+/** Resolves a case to its pair; throws if the data no longer holds it, so a broken case fails the checks. */
+function casePair(spec) {
+  const set = SETS.test;
+  const film = set.meta.findIndex((m) => m.t === spec.title);
+  const cl = clusterIndex(spec.city, spec.letter);
+  const i = (set.byFilm.get(film) || []).find((k) => set.raw.cl[k] === cl);
+  if (i === undefined) throw new Error(`Kasus ${spec.id}: ${spec.title} tidak ada di ${spec.city} ${spec.letter}`);
+  return pairOf(set, i);
 }
-const WORD = {TAMBAH:'Tingkatkan', PERTAHANKAN:'Pertahankan', KURANGI:'Kurangi', TURUNKAN:'Hentikan'};
-const DESC = {TAMBAH:'Permintaan naik. Tambah jam tayang.', PERTAHANKAN:'Permintaan stabil. Jadwal tetap.',
-  KURANGI:'Permintaan turun. Kurangi pertunjukan.', TURUNKAN:'Permintaan habis. Hentikan penayangan.'};
-const wordOf = v => WORD[v.code];
-const ACTION = {TAMBAH:'Tambah jadwal', KURANGI:'Kurangi', TURUNKAN:'Hentikan', PERTAHANKAN:''};
-const ORDER = ['TAMBAH','PERTAHANKAN','KURANGI','TURUNKAN'];
-const RULE = v => v.code==='TURUNKAN' ? 1 : v.code==='TAMBAH' ? (v.kind==='libur' ? 3 : 2) : v.code==='PERTAHANKAN' ? 4 : 5;
-const col = c => `var(--${c.toLowerCase()})`;
-const MIN_D1 = '2025-03-01', MAX_D1 = '2026-04-21';
 
-function badgeText(v, d1, pred, avg){
-  const day = i => fmtD(addDays(d1, 3+i));
-  if(v.kind==='penuh') return `Kursi penuh · ${day(v.day)}`;
-  if(v.code==='TURUNKAN') return `Aturan 1 · 0 tiket mulai ${day(v.day)}`;
-  if(v.kind==='libur') return `Aturan 3 · ${holShort(addDays(d1,3+v.day)) || 'Libur'} ${fmtX(pred[v.day]/Math.max(pred[v.day-1],1e-9))} hari sebelumnya`;
-  if(v.code==='TAMBAH') return `Aturan 2 · ${day(v.day)} ${fmtX(pred[v.day]/avg)}`;
-  if(v.code==='PERTAHANKAN') return `Aturan 4 · D8–D10 ${fmtX(v.tail)}`;
-  return `Aturan 5 · turun di bawah 0,5× mulai ${day(v.day)}`;
+// ---- film list ----
+function weekOf(d1) {
+  const days = windowDates(d1);
+  const holiday = days.map(holidayShort).find(Boolean);
+  if (holiday) return { group: 'Libur nasional', holiday };
+  return { group: days.some((d) => weightOf(d) === SCHOOL_HOLIDAY_WEIGHT) ? 'Libur sekolah' : 'Hari biasa', holiday: '' };
 }
-
-function read(){
-  const fv = $('film').value, isNew = fv === '__new', sc = SCEN[fv];
-  return {isNew, film:isNew ? $('filmNew').value.trim() : sc ? sc.film : fv, kota:$('kota').value, city:isNew ? $('kota').value : $('city').value,
-    n:Math.max(1,Number($('teater').value)||1), d1:$('d1').value, y:['y1','y2','y3'].map(id=>Number($(id).value))};
-}
-
-function labels(q){
-  ['l1','l2','l3'].forEach((id,i)=>$(id).textContent = q.d1 ? fmtD(addDays(q.d1,i)) : `Hari ${i+1}`);
-}
-
-let timer, lastFilm = null;
-function run(){
-  const q = read(); labels(q);
-  const err = !q.film ? 'Ketik judul film.'
-    : !q.d1 || q.d1 < MIN_D1 || q.d1 > MAX_D1 ? 'Pilih tanggal 1 Mar 2025 – 21 Apr 2026.'
-    : q.y.some(v=>!Number.isInteger(v)||v<0||v>100000) ? 'Tiket D1–D3: bilangan bulat 0–100.000.'
-    : q.y.every(v=>v===0) ? 'Tiket D1–D3 tidak boleh semuanya 0.'
-    : !(Number($('teater').value)>=1 && Number($('teater').value)<=30) ? 'Teater 1–30.'
-    : Math.max(...q.y) > q.n*SEATS_PER_TEATER ? `${fmtN(Math.max(...q.y))} tiket/hari tidak muat di ${q.n} teater. Tambah teater.` : '';
-  $('err').textContent = err;
-  if(err) return;
-  const P = !q.isNew && DATA.demo.find(p=>p.film===q.film), C = P && entry(P, q.kota, q.city);
-  let pred, act = null, mode;
-  if(C && C.y.every((v,i)=>v===q.y[i])){
-    if(q.d1===P.d1){ pred = C.tab; act = C.act; mode = P.uji ? 'TabICLv2 · data uji' : 'TabICLv2 · validasi'; }
-    else { pred = shiftDate(C.tab, q.y, P.d1, q.d1, C.city); mode = 'TabICLv2 · skenario tanggal (tanpa data aktual)'; }
-  } else { pred = similarCases(q.y, q.d1, famOf(q.film), q.kota); mode = 'Estimasi cepat'; }
-
-  // capacity = seats of the schedule running in D1-D3 (listed films) or of the theaters typed in (new film)
-  const avg = Math.max(1,(q.y[0]+q.y[1]+q.y[2])/3), cap = C && !q.isNew ? capOf(C) : capOf({teater:q.n, y:q.y});
-  const v = decideCap(pred, q.y, cap), c = col(v.code), sold = pred;
-
-  // banner
-  $('banner').style.borderColor = `color-mix(in srgb, ${c} 45%, transparent)`;
-  $('banner').style.boxShadow = `0 0 26px -6px color-mix(in srgb, ${c} 30%, transparent)`;
-  $('word').textContent = wordOf(v); $('desc').textContent = DESC[v.code]; $('word').style.color = c;
-  const total = sold.reduce((a,b)=>a+b,0);
-  $('k2').textContent = fmtN(total);
-  // MASE only where actual sales exist (validation films at their real date), next to LightGBM on the same rows
-  $('k3box').hidden = !act;
-  if(act){
-    const err = p => act.reduce((s,a,i)=>s+Math.abs(p[i]-a),0)/7/avg;
-    $('k3').textContent = err(pred).toFixed(2).replace('.',',');
-    $('k3s').textContent = C.lgb ? `LightGBM ${err(C.lgb).toFixed(2).replace('.',',')}` : '';
-  }
-
-  // chart
-  $('ctitle').textContent = q.film;
-  const top = Math.max(...q.y, ...pred, ...(act||[]), cap, 1), max = top * 1.05;
-  const line = `<span class="capl" style="bottom:${cap/max*100}%"></span>`;
-  $('days').innerHTML = [...q.y, ...pred].map((t,j)=>{
-    const known = j < 3, i = j-3, iso = addDays(q.d1, j), d = new Date(iso+'T00:00:00Z'), off = isWeekend(iso)||holiday(iso);
-    const hit = !known && v.days.includes(i), s = t, zero = !known && t < 0.5, h = holShort(iso), ghost = '';
-    const a = act && !known ? `<span class="act" style="bottom:${act[i]/max*100}%" title="Aktual ${fmtN(act[i])}"></span>` : '';
-    const fill = hit ? `background:${c};border-top-color:${c}` : '';  // days the action applies to
-    return `<div class="day${known?' known':''}${hit?' hit':''}${off?' we':''}${zero?' zero':''}${j===3?' first':''}">`
-      + `<div class="num"><b style="${zero?'color:var(--turunkan)':''}">${fmtN(s)}</b></div>`
-      + `<div class="track${hit && zero ? ' stop' : ''}">${line}${ghost}<div class="bar" style="height:${Math.max(2, s/max*100)}%;${fill}"></div>${a}</div>`
-      + `<div class="lab"><b>${DOW[d.getUTCDay()]}</b><span>${d.getUTCDate()} ${MON[d.getUTCMonth()]}</span></div>`
-      + `<div class="hol">${!known && t>cap?'<em class="full">penuh</em>':h?`<em>${h}</em>`:''}</div></div>`;
+function filmGroupsHtml(mode) {
+  const set = SETS[mode];
+  const films = set.meta
+    .map((m, film) => ({ film, title: m.t, d1: set.raw.d1[film], week: weekOf(set.raw.d1[film]) }))
+    .sort((a, b) => a.d1.localeCompare(b.d1) || a.title.localeCompare(b.title, 'id'));
+  return WEEK_GROUPS.map((group) => {
+    const options = films.filter((f) => f.week.group === group)
+      .map((f) => `<option value="${mode}:${f.film}">${esc(f.title)}${f.week.holiday ? ` · ${esc(f.week.holiday)}` : ''}</option>`).join('');
+    return options ? `<optgroup label="${SET_NAME[mode]} · ${group}">${options}</optgroup>` : '';
   }).join('');
-  $('legend').innerHTML = `<span><span class="sw" style="background:var(--known)"></span>Terjual</span>`
-    + `<span><span class="sw" style="background:var(--fc)"></span>Prediksi</span>`
-    + (act ? '<span><span class="dot"></span>Aktual</span>' : '')
-    + '<span><span class="dash"></span>Kapasitas jadwal sekarang</span>'
-    + (v.days.length ? `<span><span class="sw" style="background:${c}"></span>${ACTION[v.code]} ${v.code==='TAMBAH' ? 'di hari yang penuh' : 'mulai ' + fmtD(addDays(q.d1, 3+v.start))}</span>` : '');
-  lastFilm = q.film;
+}
+function filmOptionsHtml() {
+  const cases = CASES.map((c) => `<option value="case:${c.id}">${esc(c.label)}</option>`).join('');
+  return `<optgroup label="Kasus data uji">${cases}</optgroup>${filmGroupsHtml('test')}${filmGroupsHtml('val')}<option value="${NEW_FILM}">+ Film baru (isi manual)</option>`;
+}
+/** Value of the film list -> {mode, film, spec}; null for a new film. */
+function filmChoice(value) {
+  if (value === NEW_FILM) return null;
+  const [kind, key] = value.split(':');
+  if (kind !== 'case') return { mode: kind, film: Number(key), spec: null };
+  const spec = CASES.find((c) => c.id === key);
+  return { mode: 'test', film: casePair(spec).film, spec };
 }
 
-// "Semua" = every listed cluster of this film in the city, summed day by day (tickets, forecast, actual, LightGBM)
-function agg(p, kota){
-  const cs = Object.values(p.cities).filter(c => c.city===kota); if(!cs.length) return null;
-  const sum = k => cs[0][k] ? cs[0][k].map((_,i) => cs.reduce((s,c) => s + c[k][i], 0)) : null;
-  return {y:sum('y'), tab:sum('tab'), act:sum('act'), lgb:sum('lgb'), sh:sum('sh'), teater:cs.reduce((s,c)=>s+c.teater,0), city:kota, id:cs[0].id};
+// ---- forecast for what the form says ----
+/** Empty string when the form is usable. Pure so it can be tested without a page. */
+function formError(q) {
+  if (!q.title) return 'Ketik judul film.';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(q.d1) || q.d1 < MIN_D1 || q.d1 > MAX_D1) return `Pilih tanggal ${tgl(MIN_D1, true)} – ${tgl(MAX_D1, true)}.`;
+  if (!q.y.every((v) => isWholeInRange(v, 0, MAX_TICKETS))) return `Tiket D1–D3: bilangan bulat 0–${fmtInt(MAX_TICKETS)}.`;
+  if (sum(q.y) === 0) return 'Tiket D1–D3 tidak boleh semuanya 0.';
+  if (q.pair) return '';
+  if (!isWholeInRange(q.cityIdx, 0, DATA.cities.length - 1)) return 'Pilih kota.';
+  if (!isWholeInRange(q.theaters, 1, MAX_THEATERS)) return `Teater: 1–${MAX_THEATERS}.`;
+  const seats = q.theaters * SHOWS_PER_THEATER * SEATS_PER_SHOW;
+  return Math.max(...q.y) > seats ? `${fmtInt(Math.max(...q.y))} tiket per hari tidak muat di ${q.theaters} teater.` : '';
 }
-const entry = (p, kota, kl) => kl==='__all' ? agg(p, kota) : p.cities[kl];
-const byNum = (a,b) => a.localeCompare(b,'id',{numeric:true});
-function fillCity(p, city){
-  const c = p && entry(p, $('kota').value, city); if(!c) return;
-  $('teater').value=c.teater; ['y1','y2','y3'].forEach((id,i)=>$(id).value=c.y[i]);
-}
-function kotaList(list, keep){
-  $('kota').innerHTML = list.map(c=>`<option>${c}</option>`).join('');
-  $('kota').value = list.includes(keep) ? keep : list[0];
-}
-function klList(p, kota, keep){
-  const kls = Object.keys(p.cities).filter(k => p.cities[k].city===kota).sort(byNum);
-  $('city').innerHTML = kls.map(k=>`<option value="${k}">${k.split(' ').pop()} · ${p.cities[k].id}</option>`).join('');
-  $('city').value = kls.includes(keep) ? keep : kls[0];
-  $('kllab').textContent = `ID klaster (${kls.length} klaster)`;
-}
-// Listed films show their cinema cluster (theaters stay in the data, used for "penuh"); a new film has no cluster, so it asks for theaters.
-function lockTeater(on){ $('tbox').hidden = on; $('klbox').hidden = !on; }
-function load(p){
-  $('film').value=p.film; $('filmNew').hidden=true; $('filmNew').required=false; lockTeater(true);
-  const kota = p.cities[p.def].city;
-  kotaList([...new Set(Object.values(p.cities).map(c=>c.city))].sort(byNum), kota); klList(p, kota, p.def);
-  $('d1').value=p.d1; fillCity(p, p.def);
-}
-function openFilm(name, kl, kota){
-  const p = DATA.demo.find(d=>d.film===name); load(p);
-  if(kota){ $('kota').value = kota; klList(p, kota, kl); fillCity(p, $('city').value); }
-  run(); show('sim');
+/** Model forecast when the form still shows the pair's real sales and date; quick estimate once it was edited. */
+function forecastView(q) {
+  const { pair } = q;
+  const isModel = Boolean(pair) && pair.d1 === q.d1 && pair.y.every((v, i) => v === q.y[i]);
+  const dates = windowDates(q.d1);
+  const fc = isModel ? pair.fc : quickEstimate(q.y, q.d1, q.cityIdx, quickLibrary(), quickFamilyOf(q.rawTitle));
+  const avg = averageD13(q.y);
+  const decision = isModel ? pair.decision : decide(fc, avg, dates);
+  const seat = pair ? pair.seat : SEATS_PER_SHOW;
+  const shows = pair ? pair.showsNow : q.theaters * SHOWS_PER_THEATER;
+  const plan = schedule(fc, seat, shows, TARGET, pair ? DATA.clusters[pair.cl].cap : Infinity);
+  const actual = isModel ? pair.actual : null;
+  const alt = isModel ? pair.alt : null;
+  const dataMax = Math.max(1, ...q.y, ...fc, ...(actual || []), ...(alt || []));
+  const seats = seat * shows;
+  return {
+    q, isModel, dates, fc, avg, decision, seats, plan, actual, alt, dataMax,
+    advice: scheduleAdvice(decision, plan, shows, dates),
+    lgb: isModel ? pair.lgb : null,
+    color: KIND_COLOR[decision.kind],
+    days: actionDays(decision),
+    drawCap: seats > 0 && seats <= dataMax * CHART_MAX_CAPACITY_RATIO,
+  };
 }
 
-function show(view){
-  ['sim','man'].forEach(k => { $('v-'+k).hidden = k!==view; $('t-'+k).setAttribute('aria-selected', String(k===view)); });
+// ---- simulasi: pieces as strings ----
+function sourceText(view) {
+  if (!view.isModel) return 'Estimasi cepat, bukan model akhir';
+  return `${clusterName(view.q.pair.cl)} · ${SET_NAME[view.q.pair.mode].toLowerCase()}`;
 }
-document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => show(b.dataset.v)));
-
-// Group films by what their forecast week (D4–D10) contains; Lebaran and Natal are date-shifted scenarios (no actual sales).
-function weekOf(p){
-  const days = [3,4,5,6,7,8,9].map(i => addDays(p.d1, i)), hol = days.map(holShort).find(Boolean);
-  return hol ? ['Libur nasional', hol] : days.some(d => weight(d)===0.91) ? ['Libur sekolah', ''] : ['Hari biasa', ''];
+function bannerText(view) {
+  const { spec, pair } = view.q;
+  const isCasePair = Boolean(spec) && view.isModel && casePair(spec).i === pair.i;
+  return isCasePair ? `${view.decision.why}. ${spec.note}` : view.decision.why;
 }
-const SCEN = {};
-[['Lebaran 2026','2026-03-18',['Jurassic World','Lilo & Stitch','The Conjuring','Pembantaian Dukun Santet']],
- ['Natal 2025','2025-12-24',['Lilo & Stitch','Fantastic Four','Jurassic World','Superman']]].forEach(([lab,d1,films]) =>
-  films.filter(f=>DATA.demo.some(p=>p.film===f)).forEach(f => { SCEN[`__s${Object.keys(SCEN).length}`] = {film:f, d1, lab}; }));
-const groups = {};
-DATA.demo.filter(p=>!p.uji).forEach(p => { const [g, h] = weekOf(p); (groups[g] = groups[g] || []).push(`<option value="${p.film}">${p.film}${h?` · ${h}`:''}</option>`); });
-const ujiOpts = DATA.demo.filter(p=>p.uji).map(p=>`<option value="${p.film}">${p.film}</option>`).join('');
-const scenOpts = lab => Object.entries(SCEN).filter(([,s])=>s.lab===lab).map(([k,s])=>`<option value="${k}">${s.film} · ${s.lab.split(" ")[0]}</option>`).join('');
-$('film').innerHTML = ['Hari biasa','Libur nasional','Libur sekolah'].filter(g=>groups[g]).map(g=>`<optgroup label="Data latih · ${g}">${groups[g].join('')}</optgroup>`).join('')
-  + (ujiOpts ? `<optgroup label="Data uji · Natal 2025, Yogyakarta (tanpa aktual)">${ujiOpts}</optgroup>` : '')
-  + `<optgroup label="Simulasi tanggal · Lebaran 2026">${scenOpts('Lebaran 2026')}</optgroup><optgroup label="Simulasi tanggal · Natal 2025">${scenOpts('Natal 2025')}</optgroup>`
-  + '<option value="__new">+ Film baru (isi manual)</option>';
-$('film').addEventListener('change',()=>{
-  const fv = $('film').value, sc = SCEN[fv], p = DATA.demo.find(d=>d.film===(sc ? sc.film : fv));
-  if(p){ load(p); if(sc){ $('film').value = fv; $('d1').value = sc.d1; } run(); return; }
-  $('filmNew').hidden=false; $('filmNew').required=true; $('filmNew').value=''; kotaList(DATA.cities); lockTeater(false);
-  ['teater','y1','y2','y3'].forEach(id=>$(id).value=''); labels(read()); $('filmNew').focus();
-});
-// Listed films update as soon as city, date or tickets change; a new film waits for the button, except re-sizing theaters.
-$('f').addEventListener('input', e=>{
-  if(e.target.id==='film') return;
-  labels(read());
-  if(read().isNew && !(e.target.id==='teater' && lastFilm===read().film)) return;
-  const P = DATA.demo.find(d=>d.film===read().film);
-  if(e.target.id==='kota') klList(P, $('kota').value, '');
-  if(e.target.id==='kota' || e.target.id==='city') fillCity(P, $('city').value);
-  clearTimeout(timer); timer = setTimeout(run, 250);
-});
-$('f').addEventListener('submit',e=>{e.preventDefault(); run();});
-
-
-// Manajer: pick a city, then one of its cinema clusters; films are grouped by decision and the counters filter the groups
-const pillStyle = k => `color:${k};border-color:color-mix(in srgb, ${k} 40%, transparent);background:color-mix(in srgb, ${k} 12%, transparent)`;
-const KLS = {};  // cluster label -> {city, id, n films}
-DATA.demo.filter(p=>!p.uji).forEach(p => Object.entries(p.cities).forEach(([kl, c]) => { (KLS[kl] = KLS[kl] || {city:c.city, id:c.id, n:0}).n++; }));
-const mcities = [...new Set(Object.values(KLS).map(k=>k.city))].sort(byNum);
-const filmsIn = city => Object.values(KLS).filter(k=>k.city===city).reduce((s,k)=>s+k.n,0);
-$('mcity').innerHTML = mcities.map(c=>`<option>${c}</option>`).join('');
-$('mcity').value = mcities.reduce((a,b)=>filmsIn(b)>filmsIn(a)?b:a);
-let mOnly = null;
-function mklList(){
-  const kls = Object.keys(KLS).filter(k=>KLS[k].city===$('mcity').value).sort((a,b)=>KLS[b].n-KLS[a].n || byNum(a,b));
-  $('mkl').innerHTML = kls.map(k=>`<option value="${k}">Klaster ${k.split(' ').pop()} · ${KLS[k].id} (${KLS[k].n} film)</option>`).join('');
+const shows = (n) => `${fmtInt(n)} pertunjukan`;
+/** One plain sentence: what to do, from when, and how many shows per day. */
+function stepText(view) {
+  const d = view.decision;
+  const a = view.advice;
+  const at = (i) => hariTgl(view.dates[i]);
+  if (d.kind === 'lepas') return `Mulai ${at(d.i)}, berikan layar ini ke film lain: prediksi 0 tiket sampai D10.`;
+  if (d.kind === 'tambah') {
+    if (a.kind === 'enough') return `Permintaan Sab–Min naik, tetapi ${shows(a.from)} per hari masih cukup. Siapkan cadangan, putuskan dari penjualan H-1.`;
+    return `Naikkan dari ${shows(a.from)} jadi ${shows(a.to)} per hari pada Sab–Min (${a.note}).`;
+  }
+  if (d.kind === 'libur') {
+    if (a.to <= a.from) return `Siapkan jadwal ekstra ${at(d.i)}: permintaan naik, ${shows(a.from)} masih cukup. Tambah bila penjualan H-1 kuat.`;
+    return `Pada ${at(d.i)}, naikkan dari ${shows(a.from)} jadi ${shows(a.to)}.`;
+  }
+  if (d.kind === 'tahan') return `Jadwal tetap sampai D10. Pekan kedua cukup sekitar ${shows(a.to)} per hari.`;
+  return `Mulai ${at(d.i)}, turunkan dari ${shows(a.from)} jadi ${shows(a.to)} per hari.`;
 }
-function manager(){
-  const kl = $('mkl').value, kota = $('mcity').value, groups = Object.fromEntries(ORDER.map(c=>[c,[]]));
-  DATA.demo.filter(p=>!p.uji && entry(p, kota, kl)).sort((a,b)=>b.d1.localeCompare(a.d1)).forEach(p => {
-    const c = entry(p, kota, kl), avg = (c.y[0]+c.y[1]+c.y[2])/3, v = decideCap(c.tab, c.y, capOf(c)), k = col(v.code), mx = Math.max(...c.tab, 1);
-    const spark = c.tab.map((t,i)=>`<i style="height:${Math.max(2, t/mx*26)}px;${v.days.includes(i)?`background:${k}`:''}"></i>`).join('');
-    groups[v.code].push(`<tr data-film="${p.film}"><td><b>${p.film}</b></td><td>${fmtD(p.d1)}</td><td>${fmtN(avg)}</td>`
-      + `<td><span class="spark">${spark}</span></td><td>${fmtN(c.tab.reduce((a,b)=>a+b,0))}</td>`
-      + `<td><span class="pill" style="${pillStyle(k)}">${WORD[v.code]}</span></td></tr>`);
+const RELIABILITY_STRONG = 0.7;
+const RELIABILITY_FAIR = 0.5;
+function reliabilityNote(kind) {
+  const r = DATA.proof.decisions.realised[kind];
+  let tone = 'lemah, cek H-1';
+  if (r.held >= RELIABILITY_STRONG) tone = 'kuat';
+  else if (r.held >= RELIABILITY_FAIR) tone = 'sedang';
+  return `${tone} · ${fmtInt(r.n)} kasus validasi`;
+}
+const RULE_TEXT = {
+  lepas: ['Lepas layar', '0 tiket sampai D10'],
+  tambah: ['Tambah jadwal', 'Sab/Min ≥ 1× rata-rata D1–D3'],
+  libur: ['Jadwal ekstra', 'hari libur ≥ +20% vs hari sebelumnya'],
+  tahan: ['Pertahankan', 'rata-rata D8–D10 ≥ 0,5×'],
+  kurangi: ['Kurangi', 'selain itu, saat turun < 0,5×'],
+};
+/** The deck's five rules in order: the one that fired is lit, the ones before it say why they did not. */
+function rulesHtml(view) {
+  const trace = ruleTrace(view.fc, view.avg, view.dates);
+  const fired = trace.findIndex((r) => r.met);
+  return trace.map((r, n) => {
+    const [title, cond] = RULE_TEXT[r.kind];
+    let state = 'tidak diperiksa';
+    if (n === fired) state = 'berlaku';
+    else if (n < fired) state = 'tidak terpenuhi';
+    const on = n === fired;
+    return `<div class="rule${on ? ' on' : ''}"${on ? ` style="border-color:${KIND_COLOR[r.kind]}"` : ''}>`
+      + `<p class="n" style="color:${KIND_COLOR[r.kind]}">Aturan ${n + 1} · ${state}</p>`
+      + `<p class="t">${esc(title)}</p><p class="c">${esc(cond)}</p><p class="v">${esc(r.value)}</p></div>`;
+  }).join('');
+}
+function kpisHtml(view) {
+  const tiles = [
+    kpiHtml('Total prediksi 7 hari', fmtInt(sum(view.fc)), view.alt ? `skenario tinggi ${fmtInt(sum(view.alt))}` : 'tiket D4–D10'),
+    kpiHtml(`Pertunjukan/hari (okupansi ${fmtPct(TARGET)})`, jadwalText(view.advice), view.advice.note),
+  ];
+  if (view.isModel && !view.q.pair.lebaran) tiles.push(kpiHtml('Keandalan saran', fmtPct(heldRateOf(view.decision.kind)), reliabilityNote(view.decision.kind)));
+  if (view.actual) tiles.push(kpiHtml('MASE', fmtDec(pairMase(view.fc, view.actual, view.avg)), `LightGBM ${fmtDec(pairMase(view.lgb, view.actual, view.avg))}`));
+  return tiles.join('');
+}
+function dayTrackHtml(view, i, value, top) {
+  const pct = (v) => (v / top) * 100;
+  const isForecast = i >= 0;
+  const isHit = isForecast && view.days.includes(i);
+  const fill = isHit ? `background:${view.color};border-top-color:${view.color}` : '';
+  const actual = view.actual && isForecast ? `<span class="act" style="bottom:${pct(view.actual[i])}%" title="Aktual ${fmtInt(view.actual[i])}"></span>` : '';
+  const alt = view.alt && isForecast ? `<span class="ghost" style="height:${pct(view.alt[i])}%" title="Skenario tinggi ${fmtInt(view.alt[i])}"></span>` : '';
+  const cap = view.drawCap ? `<span class="capl" style="bottom:${pct(view.seats)}%" title="Kapasitas ${fmtInt(view.seats)} kursi"></span>` : '';
+  const stop = isHit && Math.round(value) === 0 ? ' stop' : '';
+  return `<div class="track${stop}">${cap}${alt}<div class="bar" style="height:${Math.max(2, pct(value))}%;${fill}"></div>${actual}</div>`;
+}
+function dayHtml(view, j, top) {
+  const i = j - 3; // forecast index; negative for the three days already sold
+  const isKnown = i < 0;
+  const iso = addDays(view.q.d1, j);
+  const value = isKnown ? view.q.y[j] : view.fc[i];
+  const isZero = !isKnown && Math.round(value) === 0;
+  const isFull = !isKnown && view.seats > 0 && value > view.seats;
+  const short = holidayShort(iso);
+  const cls = ['day', isKnown && 'known', (isWeekend(iso) || short) && 'we', isZero && 'zero', j === 3 && 'first'].filter(Boolean).join(' ');
+  const tag = isFull ? '<em class="full">penuh</em>' : short ? `<em>${esc(short)}</em>` : '';
+  return `<div class="${cls}"><div class="num"><b style="${isZero ? 'color:var(--turunkan)' : ''}">${fmtInt(value)}</b></div>${dayTrackHtml(view, i, value, top)}`
+    + `<div class="lab"><b>${esc(hari(iso))}</b><span>${esc(tgl(iso))}</span></div><div class="hol">${tag}</div></div>`;
+}
+function chartHtml(view) {
+  const top = Math.max(view.dataMax, view.drawCap ? view.seats : 0) * CHART_HEADROOM;
+  return Array.from({ length: CHART_DAYS }, (_, j) => dayHtml(view, j, top)).join('');
+}
+function legendHtml(view) {
+  const swatch = (color, text) => `<span><span class="sw" style="background:${color}"></span>${esc(text)}</span>`;
+  return [
+    swatch('var(--known)', 'Terjual'),
+    swatch('var(--fc)', 'Prediksi'),
+    view.actual ? '<span><span class="dot"></span>Aktual</span>' : '',
+    view.alt ? '<span><span class="dash alt"></span>Skenario tinggi (F1)</span>' : '',
+    view.drawCap ? '<span><span class="dash"></span>Kapasitas jadwal sekarang</span>' : '',
+    swatch(view.color, view.decision.action),
+  ].join('');
+}
+
+// ---- simulasi: form ----
+function readForm() {
+  const choice = filmChoice($('film').value);
+  const set = choice ? SETS[choice.mode] : null;
+  const pair = choice ? pairOf(set, Number($('city').value)) : null;
+  const typed = $('filmNew').value.trim();
+  return {
+    pair,
+    spec: choice ? choice.spec : null,
+    title: pair ? pair.title : typed,
+    rawTitle: pair ? set.raw.films[pair.film] : typed,
+    cityIdx: pair ? pair.cityIdx : toNumber($('kota').value),
+    theaters: toNumber($('teater').value),
+    d1: $('d1').value,
+    y: ['y1', 'y2', 'y3'].map((id) => toNumber($(id).value)),
+  };
+}
+function labelDays(d1) {
+  ['l1', 'l2', 'l3'].forEach((id, i) => { $(id).textContent = d1 ? hariTgl(addDays(d1, i)) : `D${i + 1}`; });
+}
+function paintBanner(color, word, text) {
+  $('banner').style.borderColor = `color-mix(in srgb, ${color} 45%, transparent)`;
+  $('banner').style.boxShadow = `0 0 26px -6px color-mix(in srgb, ${color} 30%, transparent)`;
+  $('word').style.color = color;
+  $('word').textContent = word;
+  $('desc').textContent = text;
+}
+function run() {
+  const q = readForm();
+  labelDays(q.d1);
+  const error = formError(q);
+  $('err').textContent = error;
+  if (error) return;
+  const view = forecastView(q);
+  paintBanner(view.color, view.decision.action, bannerText(view));
+  const lebaranNote = view.isModel && q.pair.lebaran ? ' Level Lebaran belum terukur di validasi.' : '';
+  $('step').textContent = view.isModel ? stepText(view) + lebaranNote : `${stepText(view)} Estimasi cepat: pakai sebagai arah, bukan angka pasti.`;
+  $('rules').innerHTML = rulesHtml(view);
+  $('kpis').innerHTML = kpisHtml(view);
+  $('ctitle').textContent = q.title;
+  $('csub').textContent = sourceText(view);
+  $('days').innerHTML = chartHtml(view);
+  $('legend').innerHTML = legendHtml(view);
+}
+function fillCluster(set, film, cityIdx, selected) {
+  const pairs = set.byFilm.get(film).map((i) => pairOf(set, i)).filter((p) => p.cityIdx === cityIdx)
+    .sort((a, b) => DATA.clusters[a.cl].l.localeCompare(DATA.clusters[b.cl].l));
+  $('city').innerHTML = pairs.map((p) => `<option value="${p.i}"${p.i === selected ? ' selected' : ''}>Klaster ${esc(DATA.clusters[p.cl].l)}</option>`).join('');
+  $('kllab').textContent = `Klaster (${pairs.length})`;
+}
+function fillSales(pair) {
+  $('d1').value = pair.d1;
+  ['y1', 'y2', 'y3'].forEach((id, i) => { $(id).value = pair.y[i]; });
+}
+/** Shows one listed pair in the form. */
+function fillPair(set, pair) {
+  $('filmNew').hidden = true;
+  $('tbox').hidden = true;
+  $('klbox').hidden = false;
+  const cities = [...new Set(set.byFilm.get(pair.film).map((i) => pairOf(set, i).cityIdx))].sort(byCityName);
+  $('kota').innerHTML = cities.map((c) => `<option value="${c}"${c === pair.cityIdx ? ' selected' : ''}>${esc(DATA.cities[c])}</option>`).join('');
+  fillCluster(set, pair.film, pair.cityIdx, pair.i);
+  fillSales(pair);
+}
+/** A film picked from the list opens in the current city when it plays there, otherwise in its biggest cluster. */
+function defaultPair(set, film, keepCity) {
+  const pairs = set.byFilm.get(film).map((i) => pairOf(set, i));
+  const here = pairs.filter((p) => p.cityIdx === keepCity);
+  return (here.length ? here : pairs).reduce((best, p) => (p.avg > best.avg ? p : best));
+}
+/** A new film starts empty, so the previous film's decision must not stay on screen beside it. */
+function openNewFilm() {
+  $('filmNew').hidden = false;
+  $('filmNew').value = '';
+  $('tbox').hidden = false;
+  $('klbox').hidden = true;
+  const cities = DATA.cities.map((_, c) => c).sort(byCityName);
+  $('kota').innerHTML = cities.map((c) => `<option value="${c}">${esc(DATA.cities[c])}</option>`).join('');
+  ['teater', 'y1', 'y2', 'y3'].forEach((id) => { $(id).value = ''; });
+  $('err').textContent = '';
+  labelDays($('d1').value);
+  paintBanner('var(--muted)', 'Film baru', 'Isi tiket D1–D3, lalu tekan Prediksi.');
+  ['kpis', 'days', 'legend', 'ctitle', 'csub', 'step', 'rules'].forEach((id) => { $(id).textContent = ''; });
+  $('filmNew').focus();
+}
+function onFilmChange() {
+  const choice = filmChoice($('film').value);
+  if (!choice) {
+    openNewFilm();
+    return;
+  }
+  const set = SETS[choice.mode];
+  fillPair(set, choice.spec ? casePair(choice.spec) : defaultPair(set, choice.film, toNumber($('kota').value)));
+  run();
+}
+function onCityChange() {
+  const choice = filmChoice($('film').value);
+  if (!choice) return;
+  const set = SETS[choice.mode];
+  const pair = defaultPair(set, choice.film, toNumber($('kota').value));
+  fillCluster(set, choice.film, pair.cityIdx, pair.i);
+  fillSales(pair);
+  run();
+}
+function onClusterChange() {
+  const choice = filmChoice($('film').value);
+  if (!choice) return;
+  fillSales(pairOf(SETS[choice.mode], Number($('city').value)));
+  run();
+}
+function initSim() {
+  let timer = null;
+  $('film').innerHTML = filmOptionsHtml();
+  $('film').addEventListener('change', onFilmChange);
+  $('kota').addEventListener('change', onCityChange);
+  $('city').addEventListener('change', onClusterChange);
+  $('f').addEventListener('input', (e) => {
+    if (['film', 'kota', 'city'].includes(e.target.id)) return;
+    labelDays($('d1').value);
+    if ($('film').value === NEW_FILM) return; // a new film waits for the button
+    clearTimeout(timer);
+    timer = setTimeout(run, INPUT_DELAY_MS);
   });
-  // all four categories always shown, empty ones say so
-  $('mrows').innerHTML = ORDER.filter(c=>!mOnly || mOnly===c)
-    .map(c=>`<tr class="grp"><td colspan="6" style="color:${col(c)}">${WORD[c]} · ${groups[c].length} film</td></tr>` + (groups[c].length ? groups[c].join('') : '<tr class="none"><td colspan="6">Tidak ada film</td></tr>')).join('');
-  $('mcount').innerHTML = ORDER.map(c=>`<button type="button" data-c="${c}" aria-pressed="${!mOnly || mOnly===c}" style="${pillStyle(col(c))}">${groups[c].length} ${WORD[c]}</button>`).join('');
-  document.querySelectorAll('#mcount button').forEach(b => b.addEventListener('click', () => { mOnly = mOnly===b.dataset.c ? null : b.dataset.c; manager(); }));
-  document.querySelectorAll('#mrows tr[data-film]').forEach(r => r.addEventListener('click', () => openFilm(r.dataset.film, kl, kota)));
+  $('f').addEventListener('submit', (e) => {
+    e.preventDefault();
+    run();
+  });
+  $('film').value = `case:${START_CASE}`;
+  onFilmChange();
 }
-$('mcity').addEventListener('change', () => { mOnly = null; mklList(); manager(); });
-$('mkl').addEventListener('change', () => { mOnly = null; manager(); });
-mklList(); manager();
 
+// ---- manajer ----
+let manager = { mode: 'test', cl: 0, t: MANAGER_START.t, only: null, morningByMode: {} };
+const setManager = (patch) => { manager = { ...manager, ...patch }; };
+const pillStyle = (c) => `color:${c};border-color:color-mix(in srgb, ${c} 40%, transparent);background:color-mix(in srgb, ${c} 12%, transparent)`;
 
-load(DATA.demo.find(d=>d.film==='Pengepungan di Bukit Duri')); run();
+function clustersOfCity(set, cityIdx) {
+  return DATA.clusters.map((c, cl) => ({ ...c, cl, count: (set.byCluster.get(cl) || []).length })).filter((c) => c.c === cityIdx && c.count > 0);
+}
+function nearestMorning(set, cl, t) {
+  const distance = (m) => Math.abs(daysBetween(m, t));
+  return morningsOf(set, cl).map((m) => m.t).reduce((best, m) => (distance(m) < distance(best) ? m : best));
+}
+/** Switching data or city can leave the cluster or morning without data; snap to the closest valid one. */
+function normalizeManager() {
+  const set = SETS[manager.mode];
+  const hasData = (set.byCluster.get(manager.cl) || []).length > 0;
+  const sameCity = clustersOfCity(set, DATA.clusters[manager.cl].c);
+  const fallback = sameCity.length ? sameCity[0].cl : Math.min(...set.byCluster.keys());
+  const cl = hasData ? manager.cl : fallback;
+  setManager({ cl, t: manager.t === ALL_MORNINGS ? ALL_MORNINGS : nearestMorning(set, cl, manager.t) });
+}
+function fillSelect(el, options) {
+  el.innerHTML = options.map((o) => `<option value="${esc(o.value)}"${o.selected ? ' selected' : ''}>${esc(o.label)}</option>`).join('');
+}
+function syncManagerFilters() {
+  const set = SETS[manager.mode];
+  const cityIdx = DATA.clusters[manager.cl].c;
+  fillSelect($('mdata'), Object.keys(SET_NAME).map((mode) => ({ value: mode, label: SET_NAME[mode], selected: mode === manager.mode })));
+  const cities = DATA.cities.map((_, c) => c).filter((c) => clustersOfCity(set, c).length > 0).sort(byCityName);
+  fillSelect($('mcity'), cities.map((c) => ({ value: c, label: DATA.cities[c], selected: c === cityIdx })));
+  fillSelect($('mkl'), clustersOfCity(set, cityIdx).map((c) => ({ value: c.cl, label: `Klaster ${c.l} · ${fmtInt(c.count)} film`, selected: c.cl === manager.cl })));
+  const mornings = morningsOf(set, manager.cl).map((m) => ({ value: m.t, label: `${hariTgl(m.t, true)} · ${m.n} film`, selected: m.t === manager.t }));
+  fillSelect($('mday'), [{ value: ALL_MORNINGS, label: 'Semua tanggal', selected: manager.t === ALL_MORNINGS }, ...mornings]);
+}
+function managerKpisHtml(card, mode) {
+  const released = card.rows.filter((r) => r.pair.decision.kind === 'lepas').length;
+  const tiles = [
+    kpiHtml('Total prediksi 7 hari', fmtInt(card.tickets)),
+    kpiHtml('Pendapatan tiket', fmtRp(card.revenue)),
+    kpiHtml('Layar dilepas', fmtInt(released)),
+    kpiHtml('Pertunjukan 7 hari', `−${fmtInt(card.freedShows)} / +${fmtInt(card.addedShows)}`, `dibebaskan / ditambah (okupansi ${fmtPct(TARGET)})`),
+  ];
+  if (mode === 'val') tiles.push(kpiHtml('Saran terbukti', `${card.rows.filter((r) => r.pair.held).length}/${card.rows.length}`));
+  return tiles.join('');
+}
+function managerRowHtml(row) {
+  const p = row.pair;
+  const d = p.decision;
+  const color = KIND_COLOR[d.kind];
+  const days = actionDays(d);
+  const peak = Math.max(1, ...p.fc);
+  const spark = p.fc.map((t, i) => `<i style="height:${Math.max(2, (t / peak) * SPARK_HEIGHT)}px;${days.includes(i) ? `background:${color}` : ''}"></i>`).join('');
+  const actual = p.actual ? `<small>aktual ${fmtInt(sum(p.actual))}</small>` : '';
+  const verdict = p.actual ? (p.held ? ' ✓' : ' ✗') : '';
+  return `<tr data-i="${p.i}" data-mode="${esc(p.mode)}" tabindex="0"><td><b>${esc(p.title)}</b></td><td>${esc(hariTgl(p.d1))}</td><td>${fmtInt(p.avg)}</td>`
+    + `<td><span class="spark">${spark}</span></td><td>${fmtInt(row.tickets)}${actual}</td><td title="${esc(row.advice.note)}">${jadwalText(row.advice)}</td>`
+    + `<td><span class="pill" style="${pillStyle(color)}" title="${esc(d.why)}">${esc(d.action)}${verdict}</span></td></tr>`;
+}
+function managerBodyHtml(card, only) {
+  return KIND_ORDER.filter((k) => !only || only === k).map((kind) => {
+    const rows = card.rows.filter((r) => r.pair.decision.kind === kind);
+    const body = rows.length ? rows.map(managerRowHtml).join('') : '<tr class="none"><td colspan="7">Tidak ada film</td></tr>';
+    const held = fmtPct(DATA.proof.decisions.realised[kind].held);
+    return `<tr class="grp"><td colspan="7" style="color:${KIND_COLOR[kind]}">${KIND_LABEL[kind]} · ${rows.length} film<span class="rel">terbukti ${held} di validasi</span></td></tr>${body}`;
+  }).join('');
+}
+const URGENCY = ['lepas', 'kurangi', 'libur', 'tambah', 'tahan'];
+const SUMMARY_NAMES = 3;
+function whenText(d, dates) {
+  if (d.kind === 'tambah') return 'Sab–Min';
+  if (d.kind === 'tahan') return 'sampai D10';
+  return hariTgl(dates[d.i]);
+}
+/** "What to do this morning": one line per saran, most urgent first, with the films and their day. */
+function managerSummaryHtml(card) {
+  const lines = URGENCY.map((kind) => {
+    const rows = card.rows.filter((r) => r.pair.decision.kind === kind);
+    if (!rows.length) return '';
+    const names = rows.slice(0, SUMMARY_NAMES).map((r) => `${esc(r.pair.title)} <small>(${esc(whenText(r.pair.decision, r.pair.dates))})</small>`).join(', ');
+    const more = rows.length > SUMMARY_NAMES ? ` dan ${fmtInt(rows.length - SUMMARY_NAMES)} film lain` : '';
+    return `<li><b style="color:${KIND_COLOR[kind]}">${KIND_LABEL[kind]}</b> · ${names}${more}</li>`;
+  }).join('');
+  return `<p class="eyebrow">Yang perlu dilakukan</p><ul>${lines}</ul>`;
+}
+function managerCountsHtml(card, only) {
+  const counts = kindCounts(card.rows.map((r) => r.pair));
+  return KIND_ORDER.map((k) => `<button type="button" data-kind="${k}" aria-pressed="${!only || only === k}" style="${pillStyle(KIND_COLOR[k])}">${counts[k]} ${KIND_LABEL[k]}</button>`).join('');
+}
+function renderManager() {
+  normalizeManager();
+  syncManagerFilters();
+  const card = cardFor(SETS[manager.mode], manager.cl, manager.t, TARGET);
+  $('mkpis').innerHTML = managerKpisHtml(card, manager.mode);
+  $('msum').innerHTML = managerSummaryHtml(card);
+  $('mcount').innerHTML = managerCountsHtml(card, manager.only);
+  $('mrows').innerHTML = managerBodyHtml(card, manager.only);
+}
+function changeManager(patch) {
+  setManager({ only: null, ...patch });
+  renderManager();
+}
+function openRow(row) {
+  const { mode } = row.dataset;
+  const set = SETS[mode];
+  const pair = pairOf(set, Number(row.dataset.i));
+  $('film').value = `${mode}:${pair.film}`;
+  fillPair(set, pair);
+  run();
+  show('sim');
+  window.scrollTo(0, 0);
+}
+function onManagerDataChange(mode) {
+  const morningByMode = { ...manager.morningByMode, [manager.mode]: manager.t };
+  changeManager({ mode, morningByMode, t: morningByMode[mode] || manager.t });
+}
+function initManager() {
+  setManager({ cl: clusterIndex(MANAGER_START.city, MANAGER_START.letter) });
+  $('mdata').addEventListener('change', (e) => onManagerDataChange(e.target.value));
+  $('mcity').addEventListener('change', (e) => changeManager({ cl: clustersOfCity(SETS[manager.mode], Number(e.target.value))[0].cl }));
+  $('mkl').addEventListener('change', (e) => changeManager({ cl: Number(e.target.value) }));
+  $('mday').addEventListener('change', (e) => changeManager({ t: e.target.value }));
+  $('mcount').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-kind]');
+    if (!b) return;
+    setManager({ only: manager.only === b.dataset.kind ? null : b.dataset.kind });
+    renderManager();
+  });
+  $('mrows').addEventListener('click', (e) => {
+    const row = e.target.closest('tr[data-i]');
+    if (row) openRow(row);
+  });
+  $('mrows').addEventListener('keydown', (e) => {
+    const row = e.target.closest('tr[data-i]');
+    if (row && e.key === 'Enter') openRow(row);
+  });
+  renderManager();
+}
+
+// ---- shell ----
+function show(view) {
+  ['sim', 'man'].forEach((k) => {
+    $(`v-${k}`).hidden = k !== view;
+    $(`t-${k}`).setAttribute('aria-selected', String(k === view));
+  });
+}
+function boot() {
+  try {
+    document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => show(b.dataset.v)));
+    initSim();
+    initManager();
+  } catch (err) {
+    $('err').textContent = `Dashboard gagal dimuat: ${err.message}`;
+    throw err;
+  }
+}
+if (typeof document !== 'undefined') boot();

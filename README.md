@@ -1,32 +1,57 @@
-# TUKANGDATA · Demo prediksi tiket
+# TUKANGDATA · Dashboard keputusan layar
 
-Buka `index.html` di browser (Chrome/Edge). Satu file, bisa jalan offline, tinggal upload ke Render/Netlify sebagai static site.
+Dashboard ini untuk manajer bioskop. Setelah tiga hari penjualan film (D1–D3), dashboard menjawab apa yang harus diputuskan pagi ini, mulai kapan, dan berapa pertunjukan per hari.
+Buka `index.html` di browser. Satu file, data dan font sudah tertanam, jadi bisa jalan offline atau di-upload sebagai static site.
 
-## Isi folder
+## Dua tab
 
-| Path | Isi |
+| Tab | Isi |
 |---|---|
-| `index.html` | Halaman demo siap pakai (hasil gabungan `src/` + `data/`) |
-| `src/template.html` | Tampilan: HTML dan CSS |
-| `src/engine.js` | Perhitungan: kalender libur, estimasi kasus serupa, penyesuaian Lebaran/NYE/Ramadan/Nyepi dari notebook JOINTS, aturan keputusan berbasis kapasitas |
-| `src/ui.js` | Interaksi: form, grafik 10 hari, tab Manajer |
-| `data/data.json` | Data yang tertanam di halaman: prediksi TabICLv2 + penjualan aktual (validasi silang), kalender, prior Lebaran |
-| `build/` | Skrip Python pembuat `data.json` dan `index.html` |
-| `check/` | Skrip Node pengecekan: keputusan vs data aktual (`check2.mjs`) dan uji input acak (`fuzz.mjs`) |
+| **Simulasi** | Pilih film (13 kasus data uji, semua film data uji dan validasi, atau film baru), kota, klaster, tanggal, dan tiket D1–D3. Keluarannya: saran besar dengan tanggalnya, kalimat langkah (mis. "Pada Kam 1 Jan, naikkan dari 3 jadi 4 pertunjukan"), total prediksi 7 hari, kebutuhan pertunjukan, keandalan saran, grafik 10 hari, dan panel **Kenapa saran ini** yang menandai aturan yang berlaku serta angka yang dibaca tiap aturan. |
+| **Manajer** | Pilih data, kota, klaster, dan pagi keputusan. Keluarannya: jumlah per saran (bisa difilter), ringkasan uang dan pertunjukan, daftar **Yang perlu dilakukan** (urut dari yang paling mendesak), lalu tabel film per saran dengan keandalannya. Klik baris untuk membuka filmnya di Simulasi. |
 
-## Aturan keputusan
+## Aturan saran
 
-Kapasitas per hari = jumlah pertunjukan D1–D3 × 149 kursi, minimal penjualan terlaris D1–D3 ÷ 85%.
+Sama dengan kartu di presentasi, diperiksa berurutan. Rasio = prakiraan ÷ rata-rata D1–D3.
 
-1. **Hentikan**: prediksi 0 tiket sampai D10
-2. **Tingkatkan**: prediksi melewati kapasitas
-3. **Kurangi**: rata-rata D8–D10 di bawah separuh rata-rata D1–D3
-4. **Pertahankan**: selain itu
+1. 0 tiket sampai D10 → **Lepas layar**
+2. Sabtu atau Minggu ≥ 1× → **Tambah jadwal**
+3. Hari libur ≥ +20% dibanding hari sebelumnya → **Jadwal ekstra**
+4. Rata-rata D8–D10 ≥ 0,5× → **Pertahankan**
+5. Selain itu → **Kurangi** mulai rasio pertama kali < 0,5×
 
-## Sumber data
+Versi awal memakai aturan kapasitas yang berbeda dari kartu presentasi. Versi ini memakai satu aturan yang sama di semua tempat, dan `check_rules.mjs` memeriksanya terhadap Python pada semua pasangan.
 
-Semua dari kit presentasi dan zip submisi: `oof_merged.parquet` (validasi silang TabICLv2, data latih Apr–Sep 2025), `calendar_features.csv`, `cal_final_cohort_multipliers.csv`, `priors_lebaran_citytype_final.csv`, `priors_mudik_citytype.csv`. Data uji (4 film Yogyakarta, Natal 2025) dari kartu S14 di `06_FAKTA_ANGKA.md`, tanpa penjualan aktual.
+## Data
 
-## Membangun ulang
+- **Data uji (Okt 2025–Mar 2026), 10.373 pasangan:** prakiraan final `F2.csv`. Untuk 5 judul Lebaran, `F1.csv` menjadi skenario tinggi. Aktualnya belum ada.
+- **Data validasi (Apr–Sep 2025), 7.043 pasangan:** prakiraan validasi silang model akhir, dengan aktual. Dari sini keandalan tiap saran dihitung (porsi klaim yang terbukti): Lepas 90%, Tambah 81%, Kurangi 73%, Jadwal ekstra 39%, Pertahankan 31%. Di bawah 50% dashboard menulis "lemah, cek H-1". Kohort Lebaran belum terukur.
 
-Skrip di `build/` mengharapkan folder kit di `../kit/ppt_joints_kit/` relatif terhadap folder kerja. Urutan: `build.py` → `build2.py` → `augment.py` → `patch3.py` → `patch4.py` (menghasilkan `tiga-hari-cukup.html` dan `standalone.html`; `standalone.html` = `index.html`). Butuh Python dengan `polars` dan `numpy`. Skrip `patch4.py` membaca file dengan nama lamanya (`template3.html`, `ui3.js`, `engine.js`, `data.json` di folder yang sama), jadi salin `src/` dan `data/` ke folder kerja dengan nama itu sebelum menjalankannya.
+## Lapisan tambahan (asumsi, bukan keluaran model)
+
+- **Pertunjukan per hari** = prakiraan ÷ (kursi per pertunjukan × okupansi target 40%), dibatasi kapasitas klaster (persentil 99 pertunjukan harian di data latih). "Cukup" berarti arah permintaan naik, tetapi jadwal sekarang masih menampung.
+- **Pendapatan** = tiket × harga batas atas kota, jadi cenderung lebih tinggi dari realisasi.
+- **Film baru** memakai estimasi cepat (median 100 kasus validasi termirip), bukan model akhir.
+
+## Struktur
+
+```
+index.html        hasil build, buka file ini
+src/              engine.js (aturan, kalender, format), store.js (akses data, kartu manajer), ui.js, template.html
+data/data.json    hasil build_data.py
+assets/fonts/     Plus Jakarta Sans dan JetBrains Mono (latin), ditanam ke index.html
+build/            build_data.py, proof_stats.py, titles.py, build_html.py
+check/            check_rules.mjs, fuzz.mjs, check_data.py, load.mjs
+```
+
+## Membangun ulang dan memeriksa
+
+```
+python build/build_data.py     # hanya bila data sumber berubah (butuh folder proyek JOINTS)
+python build/build_html.py
+node check/check_rules.mjs     # kartu presentasi, paritas aturan JS dan Python, panel "kenapa" = saran
+node check/fuzz.mjs            # semua kartu, 13 kasus, input formulir, teks tanpa NaN
+python check/check_data.py     # data.json vs CSV sumber, halaman tanpa URL luar
+```
+
+Butuh Python (pandas, numpy, pyarrow) dan Node.js. Membuka `index.html` tidak membutuhkan semua ini.
