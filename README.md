@@ -8,7 +8,7 @@ Buka `index.html` di browser. Satu file, data dan font sudah tertanam, jadi bisa
 | Tab | Isi |
 |---|---|
 | **Simulasi** | Pilih film (13 kasus data uji, semua film data uji dan validasi, atau film baru), kota, klaster, tanggal, dan tiket D1–D3. Keluarannya: saran besar dengan tanggalnya, kalimat langkah (mis. "Pada Kam 1 Jan, naikkan dari 3 jadi 4 pertunjukan"), total prediksi 7 hari, kebutuhan pertunjukan, keandalan saran, grafik 10 hari, dan panel **Kenapa saran ini** yang menandai aturan yang berlaku serta angka yang dibaca tiap aturan. |
-| **Manajer** | Pilih data, kota, klaster, dan pagi keputusan. Keluarannya: jumlah per saran (bisa difilter), ringkasan uang dan pertunjukan, daftar **Yang perlu dilakukan** (urut dari yang paling mendesak, dengan keandalan tiap saran), lalu kartu seperti di presentasi: satu tabel film, urut dari prediksi 7 hari terbesar, berisi tiket D1–D3, rata-rata, prediksi per hari D4–D10 (hari dasar saran diwarnai), total, jadwal, serta saran dengan alasannya di bawahnya. Klik baris untuk membuka filmnya di Simulasi. |
+| **Ringkasan Klaster** | Pilih data, kota, klaster, dan pagi keputusan. Keluarannya: jumlah per saran (bisa difilter), ringkasan uang dan pertunjukan, daftar **Yang perlu dilakukan** (urut dari yang paling mendesak, dengan keandalan tiap saran), lalu kartu seperti di presentasi: satu tabel film, urut dari prediksi 7 hari terbesar, berisi tiket D1–D3, rata-rata, prediksi per hari D4–D10 (hari dasar saran diwarnai), total, jadwal, serta saran dengan alasannya di bawahnya. Klik baris untuk membuka filmnya di Simulasi. |
 
 ## Aturan saran
 

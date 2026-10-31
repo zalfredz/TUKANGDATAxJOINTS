@@ -1,4 +1,4 @@
-// The two pages: Simulasi (one film in one cluster) and Manajer (the new films of a cluster on one morning).
+// The two pages: Simulasi (one film in one cluster) and Ringkasan Klaster (the new films of a cluster on one morning).
 const $ = (id) => document.getElementById(id);
 const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
@@ -23,21 +23,21 @@ const KIND_COLOR = { tambah: 'var(--tambah)', libur: 'var(--goldl)', tahan: 'var
 const START_CASE = 'janur';
 const MANAGER_START = Object.freeze({ city: 'Yogyakarta', letter: 'A', t: '2025-12-27' });
 
-// Real test-data situations, offered first in the film list. Notes stay short: the chart carries the numbers.
+// Real test-data situations, offered first in the film list under their plain title. Notes stay short: the chart carries the numbers.
 const CASES = [
-  { id: 'janur', label: 'Kartu Sabtu pagi · Janur Ireng', title: 'Janur Ireng: Sewu Dino The Prequel', city: 'Yogyakarta', letter: 'A', note: 'Kartu di presentasi.' },
-  { id: 'balas', label: 'Lepas cepat · Balas Budi', title: 'Balas Budi', city: 'Tangerang', letter: 'B', note: 'Teater bisa dipakai film lain.' },
-  { id: 'jumat', label: 'Rilis Jumat tergeser · 13 Days, 13 Nights', title: '13 Days, 13 Nights', city: 'Jakarta', letter: 'C', note: 'Film Jumat lebih cepat tergeser.' },
-  { id: 'natal', label: 'Natal di hari kerja · Avatar', title: 'Avatar: Fire and Ash', city: 'Jakarta', letter: 'A', note: 'Natal Kamis, siapkan seperti akhir pekan.' },
-  { id: 'isra', label: 'Sinyal libur lemah · Malam 3 Yasinan', title: 'Malam 3 Yasinan', city: 'Jakarta', letter: 'A', note: 'Cek penjualan H-1 dulu.' },
-  { id: 'lebaran', label: 'Dua skenario Lebaran · Na Willa', title: 'Na Willa', city: 'Yogyakarta', letter: 'A', note: 'Level Lebaran belum terukur.' },
-  { id: 'habis', label: 'Terjual habis · Alas Roban', title: 'Alas Roban', city: 'Pekalongan', letter: 'A', note: 'Permintaan terpotong kursi.' },
-  { id: 'lokasi', label: 'Beda lokasi · Zootopia 2, Manado', title: 'Zootopia 2', city: 'Manado', letter: 'B', note: 'Di Jakarta A sarannya tambah jadwal.' },
-  { id: 'imax', label: 'IMAX tergeser · Predator', title: 'Predator: Badlands (IMAX 2D)', city: 'Jakarta', letter: 'A', note: 'Teater diambil film IMAX baru.' },
-  { id: 'kursi', label: 'Kursi sudah cukup · Number One', title: 'Number One', city: 'Jakarta', letter: 'A', note: 'Permintaan naik, kursi masih longgar.' },
-  { id: 'pola3', label: 'Hanya D3 terjual · Sampai Titik Terakhirmu', title: 'Sampai Titik Terakhirmu', city: 'Kendari', letter: 'A', note: 'Baca tiketnya, bukan rasionya.' },
-  { id: 'nyepi', label: 'Nyepi di D2 · Danur, Denpasar', title: 'Danur: The Last Chapter', city: 'Denpasar', letter: 'A', note: 'Tiga hari pertama tidak normal.' },
-  { id: 'ramadan', label: 'Turun mulai Senin · Blades of the Guardians', title: 'Blades of the Guardians', city: 'Jakarta', letter: 'A', note: 'Akhir pekan masih kuat.' },
+  { id: 'janur', title: 'Janur Ireng: Sewu Dino The Prequel', city: 'Yogyakarta', letter: 'A', note: 'Kartu di presentasi.' },
+  { id: 'balas', title: 'Balas Budi', city: 'Tangerang', letter: 'B', note: 'Teater bisa dipakai film lain.' },
+  { id: 'jumat', title: '13 Days, 13 Nights', city: 'Jakarta', letter: 'C', note: 'Film Jumat lebih cepat tergeser.' },
+  { id: 'natal', title: 'Avatar: Fire and Ash', city: 'Jakarta', letter: 'A', note: 'Natal Kamis, siapkan seperti akhir pekan.' },
+  { id: 'isra', title: 'Malam 3 Yasinan', city: 'Jakarta', letter: 'A', note: 'Cek penjualan H-1 dulu.' },
+  { id: 'lebaran', title: 'Na Willa', city: 'Yogyakarta', letter: 'A', note: 'Level Lebaran belum terukur.' },
+  { id: 'habis', title: 'Alas Roban', city: 'Pekalongan', letter: 'A', note: 'Permintaan terpotong kursi.' },
+  { id: 'lokasi', title: 'Zootopia 2', city: 'Manado', letter: 'B', note: 'Di Jakarta A sarannya tambah jadwal.' },
+  { id: 'imax', title: 'Predator: Badlands (IMAX 2D)', city: 'Jakarta', letter: 'A', note: 'Teater diambil film IMAX baru.' },
+  { id: 'kursi', title: 'Number One', city: 'Jakarta', letter: 'A', note: 'Permintaan naik, kursi masih longgar.' },
+  { id: 'pola3', title: 'Sampai Titik Terakhirmu', city: 'Kendari', letter: 'A', note: 'Baca tiketnya, bukan rasionya.' },
+  { id: 'nyepi', title: 'Danur: The Last Chapter', city: 'Denpasar', letter: 'A', note: 'Tiga hari pertama tidak normal.' },
+  { id: 'ramadan', title: 'Blades of the Guardians', city: 'Jakarta', letter: 'A', note: 'Akhir pekan masih kuat.' },
 ];
 
 const clusterIndex = (city, letter) => DATA.clusters.findIndex((c) => DATA.cities[c.c] === city && c.l === letter);
@@ -62,9 +62,8 @@ function casePair(spec) {
 // ---- film list ----
 function weekOf(d1) {
   const days = windowDates(d1);
-  const holiday = days.map(holidayShort).find(Boolean);
-  if (holiday) return { group: 'Libur nasional', holiday };
-  return { group: days.some((d) => weightOf(d) === SCHOOL_HOLIDAY_WEIGHT) ? 'Libur sekolah' : 'Hari biasa', holiday: '' };
+  if (days.some(holidayShort)) return { group: 'Libur nasional' };
+  return { group: days.some((d) => weightOf(d) === SCHOOL_HOLIDAY_WEIGHT) ? 'Libur sekolah' : 'Hari biasa' };
 }
 function filmGroupsHtml(mode) {
   const set = SETS[mode];
@@ -73,12 +72,12 @@ function filmGroupsHtml(mode) {
     .sort((a, b) => a.d1.localeCompare(b.d1) || a.title.localeCompare(b.title, 'id'));
   return WEEK_GROUPS.map((group) => {
     const options = films.filter((f) => f.week.group === group)
-      .map((f) => `<option value="${mode}:${f.film}">${esc(f.title)}${f.week.holiday ? ` · ${esc(f.week.holiday)}` : ''}</option>`).join('');
+      .map((f) => `<option value="${mode}:${f.film}">${esc(f.title)}</option>`).join('');
     return options ? `<optgroup label="${SET_NAME[mode]} · ${group}">${options}</optgroup>` : '';
   }).join('');
 }
 function filmOptionsHtml() {
-  const cases = CASES.map((c) => `<option value="case:${c.id}">${esc(c.label)}</option>`).join('');
+  const cases = CASES.map((c) => `<option value="case:${c.id}">${esc(c.title)}</option>`).join('');
   return `<optgroup label="Kasus data uji">${cases}</optgroup>${filmGroupsHtml('test')}${filmGroupsHtml('val')}<option value="${NEW_FILM}">+ Film baru (isi manual)</option>`;
 }
 /** Value of the film list -> {mode, film, spec}; null for a new film. */
