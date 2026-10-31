@@ -106,8 +106,7 @@ tbody tr{cursor:pointer} tbody tr:hover{background:rgba(26,29,39,.8)}
 .counts button{font:inherit;font-size:12px;font-weight:700;border:1px solid;border-radius:8px;padding:5px 10px;cursor:pointer;opacity:.55}
 .counts button[aria-pressed="true"]{opacity:1}
 tr.none td{text-align:left!important;font-family:var(--sans);font-size:12px;color:var(--dim);cursor:default}
-tr.grp td{font-family:var(--sans);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;background:rgba(26,29,39,.6);padding:8px 10px;cursor:default;text-align:left!important}
-tr.none:hover,tr.grp:hover{background:none}
+tr.none:hover{background:none}
 .stage>*{min-width:0}
 .bhead{flex:1 1 320px;min-width:0}
 .step{margin:10px 0 0;max-width:60ch;font-size:15px;font-weight:600;line-height:1.45;color:var(--fg)}
@@ -123,9 +122,16 @@ tr.none:hover,tr.grp:hover{background:none}
 .msum{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 16px}
 .msum ul{margin:0;padding-left:18px;display:grid;gap:4px;font-size:13px}
 .msum small{color:var(--muted);font-size:11.5px}
-tr.grp .rel{float:right;font-weight:600;letter-spacing:0;text-transform:none;color:var(--muted)}
-.spark{display:inline-flex;align-items:flex-end;gap:2px;height:26px}
-.spark i{display:block;width:7px;border-radius:2px 2px 0 0;background:var(--fc)}
+.mcap{margin:0 0 8px;font-size:13px;font-weight:700}
+.mnote{margin:8px 0 0;font-size:11px;color:var(--muted)}
+.msum .rel{color:var(--dim);font-size:11px}
+tr.band th{border-bottom:0;padding-bottom:0;font-family:var(--sans);text-transform:none;font-size:11px;color:var(--fg)}
+th.dc{padding-left:2px;padding-right:2px;font-size:9.5px;line-height:1.3}
+td.dc{padding:10px 2px;vertical-align:bottom;min-width:34px}
+td.dc .dn{display:block;font-size:10.5px;font-weight:700;margin-bottom:3px}
+td.dc .db{display:block;width:22px;margin:0 auto;border-radius:2px 2px 0 0}
+td.avg{font-weight:700}
+td small.why{margin-top:5px;font-family:var(--sans);font-size:11px}
 </style>
 </head>
 <body>
@@ -195,7 +201,7 @@ tr.grp .rel{float:right;font-weight:600;letter-spacing:0;text-transform:none;col
       </div>
       <div class="kpis" id="mkpis"></div>
       <div class="msum" id="msum"></div>
-      <div class="tbl"><table><thead><tr><th>Film</th><th>Rilis</th><th>Rata-rata D1–D3</th><th>Prediksi 7 hari</th><th>Total 7 hari</th><th>Jadwal</th><th>Keputusan</th></tr></thead><tbody id="mrows"></tbody></table></div>
+      <div class="tbl"><p class="mcap" id="mcap"></p><table><thead id="mth"></thead><tbody id="mrows"></tbody></table><p class="mnote">Hari berwarna = hari yang jadi dasar saran.</p></div>
     </div>
   </section>
 </main>

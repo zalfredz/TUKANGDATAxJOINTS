@@ -7,7 +7,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
 
 const EXPORTS = `decide, ruleTrace, claimHeld, schedule, scheduleAdvice, revenueOf, priceOf, quickEstimate, quickLibrary, quickFamilyOf,
-  addDays, windowDates, averageD13, holidayShort, fmtInt, fmtDec, fmtPct, fmtRp, tgl, hariTgl,
+  addDays, windowDates, averageD13, holidayShort, isWeekend, fmtInt, fmtDec, fmtPct, fmtRp, tgl, hariTgl,
   SETS, pairOf, cardFor, ALL_MORNINGS, morningsOf, kindCounts, clusterName, heldRateOf, pairMase, slice, KIND_ORDER, KIND_LABEL, DATA`;
 
 export function loadEngine() {
@@ -17,7 +17,7 @@ export function loadEngine() {
 }
 
 const UI_EXPORTS = `${EXPORTS}, esc, CASES, casePair, weekOf, filmOptionsHtml, filmChoice, formError, forecastView, bannerText, sourceText,
-  kpisHtml, chartHtml, legendHtml, actionDays, jadwalText, managerKpisHtml, managerBodyHtml, managerCountsHtml, clusterIndex, SEATS_PER_SHOW, stepText, rulesHtml, managerSummaryHtml`;
+  kpisHtml, chartHtml, legendHtml, basisDays, jadwalText, managerKpisHtml, managerBodyHtml, managerCountsHtml, clusterIndex, SEATS_PER_SHOW, stepText, rulesHtml, managerSummaryHtml, managerHeadHtml, managerCaptionText`;
 
 /** Engine plus the page's HTML builders. They touch the DOM only when called with $(), so most run under Node. */
 export function loadUi() {

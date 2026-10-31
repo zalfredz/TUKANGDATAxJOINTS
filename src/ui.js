@@ -26,14 +26,14 @@ const MANAGER_START = Object.freeze({ city: 'Yogyakarta', letter: 'A', t: '2025-
 // Real test-data situations, offered first in the film list. Notes stay short: the chart carries the numbers.
 const CASES = [
   { id: 'janur', label: 'Kartu Sabtu pagi · Janur Ireng', title: 'Janur Ireng: Sewu Dino The Prequel', city: 'Yogyakarta', letter: 'A', note: 'Kartu di presentasi.' },
-  { id: 'balas', label: 'Lepas cepat · Balas Budi', title: 'Balas Budi', city: 'Tangerang', letter: 'B', note: 'Layar bisa dipakai film lain.' },
+  { id: 'balas', label: 'Lepas cepat · Balas Budi', title: 'Balas Budi', city: 'Tangerang', letter: 'B', note: 'Teater bisa dipakai film lain.' },
   { id: 'jumat', label: 'Rilis Jumat tergeser · 13 Days, 13 Nights', title: '13 Days, 13 Nights', city: 'Jakarta', letter: 'C', note: 'Film Jumat lebih cepat tergeser.' },
   { id: 'natal', label: 'Natal di hari kerja · Avatar', title: 'Avatar: Fire and Ash', city: 'Jakarta', letter: 'A', note: 'Natal Kamis, siapkan seperti akhir pekan.' },
   { id: 'isra', label: 'Sinyal libur lemah · Malam 3 Yasinan', title: 'Malam 3 Yasinan', city: 'Jakarta', letter: 'A', note: 'Cek penjualan H-1 dulu.' },
   { id: 'lebaran', label: 'Dua skenario Lebaran · Na Willa', title: 'Na Willa', city: 'Yogyakarta', letter: 'A', note: 'Level Lebaran belum terukur.' },
   { id: 'habis', label: 'Terjual habis · Alas Roban', title: 'Alas Roban', city: 'Pekalongan', letter: 'A', note: 'Permintaan terpotong kursi.' },
   { id: 'lokasi', label: 'Beda lokasi · Zootopia 2, Manado', title: 'Zootopia 2', city: 'Manado', letter: 'B', note: 'Di Jakarta A sarannya tambah jadwal.' },
-  { id: 'imax', label: 'IMAX tergeser · Predator', title: 'Predator: Badlands (IMAX 2D)', city: 'Jakarta', letter: 'A', note: 'Layar diambil film IMAX baru.' },
+  { id: 'imax', label: 'IMAX tergeser · Predator', title: 'Predator: Badlands (IMAX 2D)', city: 'Jakarta', letter: 'A', note: 'Teater diambil film IMAX baru.' },
   { id: 'kursi', label: 'Kursi sudah cukup · Number One', title: 'Number One', city: 'Jakarta', letter: 'A', note: 'Permintaan naik, kursi masih longgar.' },
   { id: 'pola3', label: 'Hanya D3 terjual · Sampai Titik Terakhirmu', title: 'Sampai Titik Terakhirmu', city: 'Kendari', letter: 'A', note: 'Baca tiketnya, bukan rasionya.' },
   { id: 'nyepi', label: 'Nyepi di D2 · Danur, Denpasar', title: 'Danur: The Last Chapter', city: 'Denpasar', letter: 'A', note: 'Tiga hari pertama tidak normal.' },
@@ -44,7 +44,8 @@ const clusterIndex = (city, letter) => DATA.clusters.findIndex((c) => DATA.citie
 const byCityName = (a, b) => DATA.cities[a].localeCompare(DATA.cities[b], 'id');
 const toNumber = (v) => (String(v).trim() === '' ? NaN : Number(v)); // Number('') would quietly become 0
 const isWholeInRange = (x, lo, hi) => Number.isInteger(x) && x >= lo && x <= hi;
-const actionDays = (d) => (d.kind === 'lepas' || d.kind === 'kurangi' ? [0, 1, 2, 3, 4, 5, 6].filter((i) => i >= d.i) : d.mark);
+// Days drawn in the saran's colour: only the day(s) the rule read, like "hari yang jadi dasar saran" on the deck card.
+const basisDays = (d) => d.mark;
 const jadwalText = (a) => (a.kind === 'enough' ? `${fmtInt(a.from)} cukup` : `${fmtInt(a.from)} → ${fmtInt(a.to)}`);
 const kpiHtml = (label, value, note = '') => `<div class="kpi"><span>${esc(label)}</span><b>${esc(value)}</b>${note ? `<small>${esc(note)}</small>` : ''}</div>`;
 
@@ -122,7 +123,7 @@ function forecastView(q) {
     advice: scheduleAdvice(decision, plan, shows, dates),
     lgb: isModel ? pair.lgb : null,
     color: KIND_COLOR[decision.kind],
-    days: actionDays(decision),
+    days: basisDays(decision),
     drawCap: seats > 0 && seats <= dataMax * CHART_MAX_CAPACITY_RATIO,
   };
 }
@@ -143,7 +144,7 @@ function stepText(view) {
   const d = view.decision;
   const a = view.advice;
   const at = (i) => hariTgl(view.dates[i]);
-  if (d.kind === 'lepas') return `Mulai ${at(d.i)}, berikan layar ini ke film lain: prediksi 0 tiket sampai D10.`;
+  if (d.kind === 'lepas') return `Mulai ${at(d.i)}, berikan teater ini ke film lain: prediksi 0 tiket sampai D10.`;
   if (d.kind === 'tambah') {
     if (a.kind === 'enough') return `Permintaan Sab–Min naik, tetapi ${shows(a.from)} per hari masih cukup. Siapkan cadangan, putuskan dari penjualan H-1.`;
     return `Naikkan dari ${shows(a.from)} jadi ${shows(a.to)} per hari pada Sab–Min (${a.note}).`;
@@ -153,6 +154,7 @@ function stepText(view) {
     return `Pada ${at(d.i)}, naikkan dari ${shows(a.from)} jadi ${shows(a.to)}.`;
   }
   if (d.kind === 'tahan') return `Jadwal tetap sampai D10. Pekan kedua cukup sekitar ${shows(a.to)} per hari.`;
+  if (a.kind === 'enough') return `Mulai ${at(d.i)} permintaan turun di bawah 0,5×, tetapi ${shows(a.from)} per hari sudah sesuai kebutuhan. Jangan tambah jadwal.`;
   return `Mulai ${at(d.i)}, turunkan dari ${shows(a.from)} jadi ${shows(a.to)} per hari.`;
 }
 const RELIABILITY_STRONG = 0.7;
@@ -165,7 +167,7 @@ function reliabilityNote(kind) {
   return `${tone} · ${fmtInt(r.n)} kasus validasi`;
 }
 const RULE_TEXT = {
-  lepas: ['Lepas layar', '0 tiket sampai D10'],
+  lepas: ['Lepas teater', '0 tiket sampai D10'],
   tambah: ['Tambah jadwal', 'Sab/Min ≥ 1× rata-rata D1–D3'],
   libur: ['Jadwal ekstra', 'hari libur ≥ +20% vs hari sebelumnya'],
   tahan: ['Pertahankan', 'rata-rata D8–D10 ≥ 0,5×'],
@@ -231,7 +233,7 @@ function legendHtml(view) {
     view.actual ? '<span><span class="dot"></span>Aktual</span>' : '',
     view.alt ? '<span><span class="dash alt"></span>Skenario tinggi (F1)</span>' : '',
     view.drawCap ? '<span><span class="dash"></span>Kapasitas jadwal sekarang</span>' : '',
-    swatch(view.color, view.decision.action),
+    swatch(view.color, `Hari dasar saran · ${view.decision.action}`),
   ].join('');
 }
 
@@ -405,32 +407,53 @@ function managerKpisHtml(card, mode) {
   const tiles = [
     kpiHtml('Total prediksi 7 hari', fmtInt(card.tickets)),
     kpiHtml('Pendapatan tiket', fmtRp(card.revenue)),
-    kpiHtml('Layar dilepas', fmtInt(released)),
+    kpiHtml('Teater dilepas', fmtInt(released)),
     kpiHtml('Pertunjukan 7 hari', `−${fmtInt(card.freedShows)} / +${fmtInt(card.addedShows)}`, `dibebaskan / ditambah (okupansi ${fmtPct(TARGET)})`),
   ];
   if (mode === 'val') tiles.push(kpiHtml('Saran terbukti', `${card.rows.filter((r) => r.pair.held).length}/${card.rows.length}`));
   return tiles.join('');
 }
+const MINI_BAR_HEIGHT = 26;
+/** One day of the card: the number above a small bar, scaled to the film's own biggest day (like the deck card). */
+function dayCellHtml(value, top, color, isBasis) {
+  const height = Math.max(2, (value / top) * MINI_BAR_HEIGHT);
+  const numStyle = isBasis ? ` style="color:${color}"` : '';
+  return `<td class="dc"><span class="dn"${numStyle}>${fmtInt(value)}</span><i class="db" style="height:${height}px;background:${color}"></i></td>`;
+}
 function managerRowHtml(row) {
   const p = row.pair;
   const d = p.decision;
   const color = KIND_COLOR[d.kind];
-  const days = actionDays(d);
-  const peak = Math.max(1, ...p.fc);
-  const spark = p.fc.map((t, i) => `<i style="height:${Math.max(2, (t / peak) * SPARK_HEIGHT)}px;${days.includes(i) ? `background:${color}` : ''}"></i>`).join('');
+  const top = Math.max(1, ...p.y, ...p.fc);
+  const known = p.y.map((t) => dayCellHtml(t, top, 'var(--known)', false)).join('');
+  const forecast = p.fc.map((t, i) => (d.mark.includes(i) ? dayCellHtml(t, top, color, true) : dayCellHtml(t, top, 'var(--fc)', false))).join('');
   const actual = p.actual ? `<small>aktual ${fmtInt(sum(p.actual))}</small>` : '';
   const verdict = p.actual ? (p.held ? ' ✓' : ' ✗') : '';
-  return `<tr data-i="${p.i}" data-mode="${esc(p.mode)}" tabindex="0"><td><b>${esc(p.title)}</b></td><td>${esc(hariTgl(p.d1))}</td><td>${fmtInt(p.avg)}</td>`
-    + `<td><span class="spark">${spark}</span></td><td>${fmtInt(row.tickets)}${actual}</td><td title="${esc(row.advice.note)}">${jadwalText(row.advice)}</td>`
-    + `<td><span class="pill" style="${pillStyle(color)}" title="${esc(d.why)}">${esc(d.action)}${verdict}</span></td></tr>`;
+  const reliability = `terbukti ${fmtPct(heldRateOf(d.kind))} di validasi`;
+  return `<tr data-i="${p.i}" data-mode="${esc(p.mode)}" tabindex="0"><td><b>${esc(p.title)}</b><small>rilis ${esc(hariTgl(p.d1))}</small></td>`
+    + `${known}<td class="avg">${fmtInt(p.avg)}</td>${forecast}<td>${fmtInt(row.tickets)}${actual}</td><td title="${esc(row.advice.note)}">${jadwalText(row.advice)}</td>`
+    + `<td><span class="pill" style="${pillStyle(color)}" title="${esc(reliability)}">${esc(d.action)}${verdict}</span><small class="why">${esc(d.why)}</small></td></tr>`;
 }
+const MANAGER_COLUMNS = 15;
+/** Header like the deck card: the real dates when one morning is shown, D1..D10 when films of several mornings mix. */
+function managerHeadHtml(card, t) {
+  const d1 = t === ALL_MORNINGS || !card.rows.length ? null : card.rows[0].pair.d1;
+  const day = (j) => (d1 ? `${hari(addDays(d1, j))}<br>${tgl(addDays(d1, j))}` : `D${j + 1}`);
+  const days = (from, to) => Array.from({ length: to - from }, (_, k) => `<th class="dc">${day(from + k)}</th>`).join('');
+  return `<tr class="band"><th></th><th colspan="4">3 hari pertama</th><th colspan="7">Prediksi 7 hari</th><th colspan="3"></th></tr>`
+    + `<tr><th>Film</th>${days(0, 3)}<th>Rata-rata</th>${days(3, 10)}<th>Total 7 hari</th><th>Jadwal</th><th>Saran</th></tr>`;
+}
+/** Caption above the table, in the deck's words: "Klaster Yogyakarta A · 4 film rilis Rabu, 24 Des 2025". */
+function managerCaptionText(card, cl, t) {
+  if (t === ALL_MORNINGS || !card.rows.length) return `${clusterName(cl)} · ${fmtInt(card.rows.length)} film, semua tanggal`;
+  const { d1 } = card.rows[0].pair;
+  return `${clusterName(cl)} · ${fmtInt(card.rows.length)} film rilis ${hariPanjang(d1)}, ${tgl(d1, true)}`;
+}
+/** Films biggest first (the order of cardFor, as on the deck card); the count buttons filter one saran. */
 function managerBodyHtml(card, only) {
-  return KIND_ORDER.filter((k) => !only || only === k).map((kind) => {
-    const rows = card.rows.filter((r) => r.pair.decision.kind === kind);
-    const body = rows.length ? rows.map(managerRowHtml).join('') : '<tr class="none"><td colspan="7">Tidak ada film</td></tr>';
-    const held = fmtPct(DATA.proof.decisions.realised[kind].held);
-    return `<tr class="grp"><td colspan="7" style="color:${KIND_COLOR[kind]}">${KIND_LABEL[kind]} · ${rows.length} film<span class="rel">terbukti ${held} di validasi</span></td></tr>${body}`;
-  }).join('');
+  const rows = card.rows.filter((r) => !only || r.pair.decision.kind === only);
+  if (!rows.length) return `<tr class="none"><td colspan="${MANAGER_COLUMNS}">Tidak ada film</td></tr>`;
+  return rows.map(managerRowHtml).join('');
 }
 const URGENCY = ['lepas', 'kurangi', 'libur', 'tambah', 'tahan'];
 const SUMMARY_NAMES = 3;
@@ -446,7 +469,8 @@ function managerSummaryHtml(card) {
     if (!rows.length) return '';
     const names = rows.slice(0, SUMMARY_NAMES).map((r) => `${esc(r.pair.title)} <small>(${esc(whenText(r.pair.decision, r.pair.dates))})</small>`).join(', ');
     const more = rows.length > SUMMARY_NAMES ? ` dan ${fmtInt(rows.length - SUMMARY_NAMES)} film lain` : '';
-    return `<li><b style="color:${KIND_COLOR[kind]}">${KIND_LABEL[kind]}</b> · ${names}${more}</li>`;
+    const held = `<small class="rel">terbukti ${fmtPct(heldRateOf(kind))} di validasi</small>`;
+    return `<li><b style="color:${KIND_COLOR[kind]}">${KIND_LABEL[kind]}</b> · ${names}${more} ${held}</li>`;
   }).join('');
   return `<p class="eyebrow">Yang perlu dilakukan</p><ul>${lines}</ul>`;
 }
@@ -461,6 +485,8 @@ function renderManager() {
   $('mkpis').innerHTML = managerKpisHtml(card, manager.mode);
   $('msum').innerHTML = managerSummaryHtml(card);
   $('mcount').innerHTML = managerCountsHtml(card, manager.only);
+  $('mcap').textContent = managerCaptionText(card, manager.cl, manager.t);
+  $('mth').innerHTML = managerHeadHtml(card, manager.t);
   $('mrows').innerHTML = managerBodyHtml(card, manager.only);
 }
 function changeManager(patch) {
